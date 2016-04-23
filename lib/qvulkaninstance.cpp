@@ -21,14 +21,12 @@ VkBool32 checkLayers(QVector<const char*>& check_names, QVector<VkLayerPropertie
 
 QVulkanInstance::QVulkanInstance(bool validate) {
     m_validate = validate;
-//    uint32_t gpu_count;
-    VkResult err;
-    uint32_t enabled_extension_count = 0;
 
     QVector<const char*> validationLayers;
     validationLayers
         << "VK_LAYER_GOOGLE_threading"
-        << "VK_LAYER_LUNARG_param_checker"
+//      << "VK_LAYER_LUNARG_param_checker"
+        << "VK_LAYER_LUNARG_parameter_validation"
         << "VK_LAYER_LUNARG_device_limits"
         << "VK_LAYER_LUNARG_object_tracker"
         << "VK_LAYER_LUNARG_image"
@@ -55,11 +53,11 @@ QVulkanInstance::QVulkanInstance(bool validate) {
     }
 }
 
-
-
-
 QVulkanInstance::~QVulkanInstance() {
-
+    if (m_validate) {
+        fpDestroyDebugReportCallbackEXT(m_instance, m_msgCallback, NULL);
+    }
+    vkDestroyInstance(m_instance, NULL);
 }
 
 void QVulkanInstance::init(QVector<const char*> enableLayers, QVector<const char*> enableExtension)
@@ -74,7 +72,6 @@ void QVulkanInstance::init(QVector<const char*> enableLayers, QVector<const char
     app.pEngineName = qapp->applicationName().toLocal8Bit();
     app.engineVersion = qapp->applicationVersion().toUInt();
     app.apiVersion = VK_MAKE_VERSION(1, 0, 0);
-
 
     VkInstanceCreateInfo inst_info;
     inst_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -199,6 +196,60 @@ void QVulkanInstance::initFunctionPointers()
     GET_INSTANCE_PROC_ADDR(GetPhysicalDeviceSurfacePresentModesKHR);
     GET_INSTANCE_PROC_ADDR(GetSwapchainImagesKHR);
     GET_INSTANCE_PROC_ADDR(GetDeviceProcAddr);
+    GET_INSTANCE_PROC_ADDR(CreateDebugReportCallbackEXT);
+    GET_INSTANCE_PROC_ADDR(DestroyDebugReportCallbackEXT);
+    GET_INSTANCE_PROC_ADDR(DebugReportMessageEXT);
+}
+
+void QVulkanInstance::initDebug()
+{
+    VkResult err;
+    VkDebugReportCallbackCreateInfoEXT dbgCreateInfo;
+    dbgCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
+    dbgCreateInfo.pNext = NULL;
+    dbgCreateInfo.pfnCallback = dbgFunc;
+    dbgCreateInfo.pUserData = NULL;
+    dbgCreateInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
+    err = fpCreateDebugReportCallbackEXT(m_instance, &dbgCreateInfo, NULL,
+                                         &m_msgCallback);
+    switch (err) {
+    case VK_SUCCESS:
+        break;
+    case VK_ERROR_OUT_OF_HOST_MEMORY:
+        qFatal("CreateDebugReportCallback: out of host memory\n",
+               "CreateDebugReportCallback Failure");
+        break;
+    default:
+        qFatal("CreateDebugReportCallback: unknown failure\n",
+               "CreateDebugReportCallback Failure");
+        break;
+    }
+}
+
+VkBool32 QVulkanInstance::dbgFunc(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType, uint64_t srcObject, size_t location, int32_t msgCode, const char *pLayerPrefix, const char *pMsg, void *pUserData)
+{
+    if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
+        qDebug()<<"ERROR: ["<<pLayerPrefix<<"] Code"<<msgCode<<":"<<pMsg;
+    } else if (msgFlags & VK_DEBUG_REPORT_WARNING_BIT_EXT) {
+        // We know that we're submitting queues without fences, ignore this
+        // warning
+    /*    if (strstr(pMsg,
+                   "vkQueueSubmit parameter, VkFence fence, is null pointer")) {
+            return false;
+        }*/
+        qDebug()<<"WARNING: ["<<pLayerPrefix<<"] Code"<<msgCode<<":"<<pMsg;
+    } else {
+        return false;
+    }
+
+    /*
+     * false indicates that layer should not bail-out of an
+     * API call that had validation failures. This may mean that the
+     * app dies inside the driver due to invalid parameter(s).
+     * That's what would happen without validation layers, so we'll
+     * keep that behavior here.
+     */
+    return false;
 }
 
 QVulkanPhysicalDevice::QVulkanPhysicalDevice(const VkPhysicalDevice& device)
@@ -228,7 +279,6 @@ QVulkanPhysicalDevice::QVulkanPhysicalDevice(const VkPhysicalDevice& device)
 
     m_queueProperties.resize(count);
     vkGetPhysicalDeviceQueueFamilyProperties(m_device, &count, m_queueProperties.data());
-
 }
 
 QVulkanPhysicalDevice::~QVulkanPhysicalDevice()
@@ -317,6 +367,25 @@ VkQueue QVulkanDevice::getQueue(uint32_t index)
     return queue;
 }
 
+VkCommandPool QVulkanDevice::createCommandPool(int32_t gfxQueueIndex)
+{
+    VkResult err;
+    VkCommandPool pool;
+    VkCommandPoolCreateInfo info;
+    info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    info.pNext = NULL;
+    info.queueFamilyIndex = gfxQueueIndex;
+    info.flags = 0;
+    err = vkCreateCommandPool(m_device, &info, NULL, &pool);
+    Q_ASSERT(!err);
+    return pool;
+}
+
+VkSwapchainKHR QVulkanDevice::createSwapChain()
+{
+
+}
+
 QVector<VkSurfaceFormatKHR> QVulkanPhysicalDevice::surfaceFormats(VkSurfaceKHR surface)
 {
     VkResult err;
@@ -329,6 +398,22 @@ QVector<VkSurfaceFormatKHR> QVulkanPhysicalDevice::surfaceFormats(VkSurfaceKHR s
     err = QVulkanInstance::fpGetPhysicalDeviceSurfaceFormatsKHR(m_device, surface, &formatCount, formats.data());
     Q_ASSERT(!err);
     return formats;
+}
+
+void QVulkanPhysicalDevice::init(VkSurfaceKHR surface)
+{
+    uint32_t count = 0;
+    VkResult err;
+    // Check the surface capabilities and formats
+    err = QVulkanInstance::fpGetPhysicalDeviceSurfaceCapabilitiesKHR(
+        m_device, surface, &m_surfaceCapabilities);
+    Q_ASSERT(!err);
+
+    err = QVulkanInstance::fpGetPhysicalDeviceSurfacePresentModesKHR(m_device, surface, &count, NULL);
+    Q_ASSERT(!err);
+    m_presentModes.resize(count);
+    err = QVulkanInstance::fpGetPhysicalDeviceSurfacePresentModesKHR(m_device, surface, &count, m_presentModes.data());
+    Q_ASSERT(!err);
 }
 
 void QVulkanDevice::initFunctionPointers()
@@ -351,9 +436,18 @@ PFN_vkAcquireNextImageKHR QVulkanInstance::fpAcquireNextImageKHR;
 PFN_vkQueuePresentKHR QVulkanInstance::fpQueuePresentKHR;
 PFN_vkGetDeviceProcAddr QVulkanInstance::fpGetDeviceProcAddr;
 
+PFN_vkCreateDebugReportCallbackEXT QVulkanInstance::fpCreateDebugReportCallbackEXT;
+PFN_vkDestroyDebugReportCallbackEXT QVulkanInstance::fpDestroyDebugReportCallbackEXT;
+PFN_vkDebugReportMessageEXT QVulkanInstance::fpDebugReportMessageEXT;
 
 QVulkanQueue::QVulkanQueue(VkQueue queue)
     :m_queue(queue)
+{
+
+}
+
+QVulkanCommandPool::QVulkanCommandPool(VkCommandPool pool)
+    : m_pool(pool)
 {
 
 }

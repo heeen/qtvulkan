@@ -128,7 +128,6 @@ QVulkanView::QVulkanView(QWindow *parent) : QWindow(parent)
 
     QVulkanDevice device(physDevice.device(), graphicsQueueNodeIndex, instance_layers, extensions);
 
-
     VkSurfaceFormatKHR surfFormat;
 
     QVector<VkSurfaceFormatKHR> formats = physDevice.surfaceFormats(m_vkSurface);
@@ -144,6 +143,116 @@ QVulkanView::QVulkanView(QWindow *parent) : QWindow(parent)
     }
     surfFormat.colorSpace = formats[0].colorSpace;
     qDebug()<<"format:"<<surfFormat.format<<"colorspace"<<surfFormat.colorSpace;
+    physDevice.init(m_vkSurface);
+    VkCommandPool commandPool = device.createCommandPool(graphicsQueueNodeIndex);
+}
+
+QVulkanView::~QVulkanView()
+{
+/*
+    uint32_t i;
+
+    demo->prepared = false;
+
+    for (i = 0; i < demo->swapchainImageCount; i++) {
+        vkDestroyFramebuffer(demo->device, demo->framebuffers[i], NULL);
+    }
+    free(demo->framebuffers);
+    vkDestroyDescriptorPool(demo->device, demo->desc_pool, NULL);
+
+    vkDestroyPipeline(demo->device, demo->pipeline, NULL);
+    vkDestroyPipelineCache(demo->device, demo->pipelineCache, NULL);
+    vkDestroyRenderPass(demo->device, demo->render_pass, NULL);
+    vkDestroyPipelineLayout(demo->device, demo->pipeline_layout, NULL);
+    vkDestroyDescriptorSetLayout(demo->device, demo->desc_layout, NULL);
+
+    for (i = 0; i < DEMO_TEXTURE_COUNT; i++) {
+        vkDestroyImageView(demo->device, demo->textures[i].view, NULL);
+        vkDestroyImage(demo->device, demo->textures[i].image, NULL);
+        vkFreeMemory(demo->device, demo->textures[i].mem, NULL);
+        vkDestroySampler(demo->device, demo->textures[i].sampler, NULL);
+    }
+    demo->fpDestroySwapchainKHR(demo->device, demo->swapchain, NULL);
+
+    vkDestroyImageView(demo->device, demo->depth.view, NULL);
+    vkDestroyImage(demo->device, demo->depth.image, NULL);
+    vkFreeMemory(demo->device, demo->depth.mem, NULL);
+
+    vkDestroyBuffer(demo->device, demo->uniform_data.buf, NULL);
+    vkFreeMemory(demo->device, demo->uniform_data.mem, NULL);
+
+    for (i = 0; i < demo->swapchainImageCount; i++) {
+        vkDestroyImageView(demo->device, demo->buffers[i].view, NULL);
+        vkFreeCommandBuffers(demo->device, demo->cmd_pool, 1,
+                             &demo->buffers[i].cmd);
+    }
+    free(demo->buffers);
+
+    free(demo->queue_props);
+
+    vkDestroyCommandPool(demo->device, demo->cmd_pool, NULL);
+    vkDestroyDevice(demo->device, NULL);
+    if (demo->validate) {
+        demo->DestroyDebugReportCallback(demo->inst, demo->msg_callback, NULL);
+    }
+    vkDestroySurfaceKHR(demo->inst, demo->surface, NULL);
+    vkDestroyInstance(demo->inst, NULL);
+*/
+}
+
+void QVulkanView::resizeEvent(QResizeEvent *)
+{
+/*
+    uint32_t i;
+
+    // Don't react to resize until after first initialization.
+    if (!demo->prepared) {
+        return;
+    }
+    // In order to properly resize the window, we must re-create the swapchain
+    // AND redo the command buffers, etc.
+    //
+    // First, perform part of the demo_cleanup() function:
+    demo->prepared = false;
+
+    for (i = 0; i < demo->swapchainImageCount; i++) {
+        vkDestroyFramebuffer(demo->device, demo->framebuffers[i], NULL);
+    }
+    free(demo->framebuffers);
+    vkDestroyDescriptorPool(demo->device, demo->desc_pool, NULL);
+
+    vkDestroyPipeline(demo->device, demo->pipeline, NULL);
+    vkDestroyPipelineCache(demo->device, demo->pipelineCache, NULL);
+    vkDestroyRenderPass(demo->device, demo->render_pass, NULL);
+    vkDestroyPipelineLayout(demo->device, demo->pipeline_layout, NULL);
+    vkDestroyDescriptorSetLayout(demo->device, demo->desc_layout, NULL);
+
+    for (i = 0; i < DEMO_TEXTURE_COUNT; i++) {
+        vkDestroyImageView(demo->device, demo->textures[i].view, NULL);
+        vkDestroyImage(demo->device, demo->textures[i].image, NULL);
+        vkFreeMemory(demo->device, demo->textures[i].mem, NULL);
+        vkDestroySampler(demo->device, demo->textures[i].sampler, NULL);
+    }
+
+    vkDestroyImageView(demo->device, demo->depth.view, NULL);
+    vkDestroyImage(demo->device, demo->depth.image, NULL);
+    vkFreeMemory(demo->device, demo->depth.mem, NULL);
+
+    vkDestroyBuffer(demo->device, demo->uniform_data.buf, NULL);
+    vkFreeMemory(demo->device, demo->uniform_data.mem, NULL);
+
+    for (i = 0; i < demo->swapchainImageCount; i++) {
+        vkDestroyImageView(demo->device, demo->buffers[i].view, NULL);
+        vkFreeCommandBuffers(demo->device, demo->cmd_pool, 1,
+                             &demo->buffers[i].cmd);
+    }
+    vkDestroyCommandPool(demo->device, demo->cmd_pool, NULL);
+    free(demo->buffers);
+
+    // Second, re-perform the demo_prepare() function, which will re-create the
+    // swapchain:
+    demo_prepare(demo);
+    */
 }
 
 

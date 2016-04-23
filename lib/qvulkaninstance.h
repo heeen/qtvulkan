@@ -42,6 +42,7 @@ private:
     void initExtensions();
     void initDevices();
     void initFunctionPointers();
+    void initDebug();
     bool m_validate;
 
     static PFN_vkGetPhysicalDeviceSurfaceSupportKHR
@@ -58,6 +59,15 @@ private:
     static PFN_vkAcquireNextImageKHR fpAcquireNextImageKHR;
     static PFN_vkQueuePresentKHR fpQueuePresentKHR;
     static PFN_vkGetDeviceProcAddr fpGetDeviceProcAddr;
+
+    static PFN_vkCreateDebugReportCallbackEXT fpCreateDebugReportCallbackEXT;
+    static PFN_vkDestroyDebugReportCallbackEXT fpDestroyDebugReportCallbackEXT;
+    VkDebugReportCallbackEXT m_msgCallback;
+    static PFN_vkDebugReportMessageEXT fpDebugReportMessageEXT;
+    static VKAPI_ATTR VkBool32 VKAPI_CALL
+    dbgFunc(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
+            uint64_t srcObject, size_t location, int32_t msgCode,
+            const char *pLayerPrefix, const char *pMsg, void *pUserData);
 };
 
 class QVulkanPhysicalDevice {
@@ -76,6 +86,9 @@ public:
     bool queueSupportsPresent(uint32_t index, VkSurfaceKHR surf);
     VkPhysicalDevice& device() { return m_device; }
     QVector<VkSurfaceFormatKHR> surfaceFormats(VkSurfaceKHR surface);
+    QVector<VkPresentModeKHR> presentModes() { return m_presentModes; };
+
+    void init(VkSurfaceKHR surface);
 private:
     VkPhysicalDevice m_device;
     VkPhysicalDeviceFeatures m_features;
@@ -87,6 +100,9 @@ private:
 
     QVector<VkExtensionProperties> m_extensions;
     QVector<VkQueueFamilyProperties> m_queueProperties;
+
+    QVector<VkPresentModeKHR> m_presentModes;
+    VkSurfaceCapabilitiesKHR m_surfaceCapabilities;
 };
 
 class QVulkanDevice {
@@ -98,6 +114,8 @@ public:
             const QVector<const char *> &extensions);
     ~QVulkanDevice(); // TODO
     VkQueue getQueue(uint32_t index);
+    VkCommandPool createCommandPool(int32_t gfxQueueIndex);
+    VkSwapchainKHR createSwapChain();
 private:
     VkDevice m_device;
     void initFunctionPointers();
@@ -108,12 +126,40 @@ private:
     PFN_vkQueuePresentKHR fpQueuePresentKHR;
 };
 
+
+class QVulkanCommandPool {
+public:
+    QVulkanCommandPool(VkCommandPool pool);
+    ~QVulkanCommandPool();
+    VkCommandPool m_pool;
+};
+
 class QVulkanQueue {
 public:
     QVulkanQueue(VkQueue queue);
     VkQueue queue() { return m_queue; }
 private:
     VkQueue m_queue;
+};
+
+class QVulkanTexture {
+private:
+    VkSampler m_sampler;
+
+    VkImage m_image;
+    VkImageLayout m_imageLayout;
+
+    VkMemoryAllocateInfo m_memAllocInfo;
+    VkDeviceMemory m_mem;
+    VkImageView m_view;
+    int32_t m_width, m_height;
+};
+
+class QVulkanSwapchainBuffers {
+private:
+    VkImage image;
+    VkCommandBuffer cmd;
+    VkImageView view;
 };
 
 #endif // QVULKANINSTANCE_H

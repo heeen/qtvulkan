@@ -11,7 +11,8 @@ class QVulkanView : public QWindow
     Q_OBJECT
 public:
     explicit QVulkanView(QWindow *parent = 0);
-
+    ~QVulkanView();
+    void resizeEvent(QResizeEvent *) override;
 signals:
 
 public slots:
