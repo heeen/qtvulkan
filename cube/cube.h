@@ -3,7 +3,6 @@
 
 #include <QWindow>
 #include <QMatrix4x4>
-#define VK_USE_PLATFORM_XCB_KHR 1
 #include <vulkan/vulkan.h>
 
 #define DEMO_TEXTURE_COUNT 1
@@ -29,7 +28,7 @@ struct texture_object {
     uint32_t tex_width, tex_height;
 };
 
-class Demo : public QWindow {
+class Demo /*: public QWindow */{
 public:
     Demo();
     ~Demo();
@@ -40,7 +39,7 @@ public:
                                       uint32_t layer_count,
                                       VkLayerProperties *layers);
 
-    void resizeEvent(QResizeEvent *) override; // QWindow::resizeEvent
+    void resizeEvent(QResizeEvent *)/* override*/; // QWindow::resizeEvent
     void resize_vk();
     void prepare_pipeline();
     void prepare();
@@ -70,7 +69,7 @@ public:
 public slots:
     void redraw();
 
-private:
+//private:
     VkSurfaceKHR m_surface;
     bool m_prepared;
     bool m_use_staging_buffer;
@@ -160,6 +159,16 @@ private:
     PFN_vkGetSwapchainImagesKHR fpGetSwapchainImagesKHR;
     PFN_vkAcquireNextImageKHR fpAcquireNextImageKHR;
     PFN_vkQueuePresentKHR fpQueuePresentKHR;
+
+
+    uint32_t m_width, m_height;
+    uint32_t width() { return m_width; }
+    uint32_t height() { return m_height; }
+    xcb_connection_t *connection;
+    xcb_screen_t *screen;
+    xcb_window_t xcb_window;
+    xcb_intern_atom_reply_t *atom_wm_delete_window;
+    uint32_t frameCount, curFrame;
 };
 
 
@@ -172,6 +181,32 @@ private:
                      "vkGetInstanceProcAddr Failure");                         \
         }                                                                      \
     }
+
+#define GET_DEVICE_PROC_ADDR(dev, entrypoint)                                  \
+    {                                                                          \
+        if (!g_gdpa)                                                           \
+            g_gdpa = (PFN_vkGetDeviceProcAddr)vkGetInstanceProcAddr(           \
+                m_inst, "vkGetDeviceProcAddr");                            \
+        fp##entrypoint =                                                 \
+            (PFN_vk##entrypoint)g_gdpa(dev, "vk" #entrypoint);                 \
+        if (fp##entrypoint == NULL) {                                    \
+            ERR_EXIT("vkGetDeviceProcAddr failed to find vk" #entrypoint,      \
+                     "vkGetDeviceProcAddr Failure");                           \
+        }                                                                      \
+    }
+
+
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
+
+#if defined(NDEBUG) && defined(__GNUC__)
+#define U_ASSERT_ONLY __attribute__((unused))
+#else
+#define U_ASSERT_ONLY
+#endif
+
+#define ERR_EXIT(err_msg, err_class) qFatal(err_msg)
+
+
 
 
 #endif // CUBE_H

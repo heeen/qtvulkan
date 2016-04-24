@@ -21,6 +21,7 @@
  * Author: Jon Ashburn <jon@lunarg.com>
  */
 
+#define VK_USE_PLATFORM_XCB_KHR 1
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,47 +37,10 @@
 
 #include <QtMath>
 #include <qpa/qplatformnativeinterface.h>
-#include <vulkan/vk_sdk_platform.h>
 
-#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
-
-#if defined(NDEBUG) && defined(__GNUC__)
-#define U_ASSERT_ONLY __attribute__((unused))
-#else
-#define U_ASSERT_ONLY
-#endif
-
-#define ERR_EXIT(err_msg, err_class) qFatal(err_msg)
-
-
-
-static PFN_vkGetDeviceProcAddr g_gdpa = NULL;
-
-#define GET_DEVICE_PROC_ADDR(dev, entrypoint)                                  \
-    {                                                                          \
-        if (!g_gdpa)                                                           \
-            g_gdpa = (PFN_vkGetDeviceProcAddr)vkGetInstanceProcAddr(           \
-                m_inst, "vkGetDeviceProcAddr");                            \
-        fp##entrypoint =                                                 \
-            (PFN_vk##entrypoint)g_gdpa(dev, "vk" #entrypoint);                 \
-        if (fp##entrypoint == NULL) {                                    \
-            ERR_EXIT("vkGetDeviceProcAddr failed to find vk" #entrypoint,      \
-                     "vkGetDeviceProcAddr Failure");                           \
-        }                                                                      \
-    }
-
-
-
-static const char *tex_files[] = {"lunarg.ppm"};
+static PFN_vkGetDeviceProcAddr g_gdpa = NULL;static const char *tex_files[] = {"lunarg.ppm"};
 
 static int validation_error = 0;
-
-struct vkcube_vs_uniform {
-    // Must start with MVP
-    float mvp[4][4];
-    float position[12 * 3][4];
-    float color[12 * 3][4];
-};
 
 struct vktexcube_vs_uniform {
     // Must start with MVP
@@ -84,25 +48,6 @@ struct vktexcube_vs_uniform {
     float position[12 * 3][4];
     float attr[12 * 3][4];
 };
-
-//--------------------------------------------------------------------------------------
-// Mesh and VertexFormat Data
-//--------------------------------------------------------------------------------------
-// clang-format off
-struct Vertex
-{
-    float     posX, posY, posZ, posW;    // Position data
-    float     r, g, b, a;                // Color
-};
-
-struct VertexPosTex
-{
-    float     posX, posY, posZ, posW;    // Position data
-    float     u, v, s, t;                // Texcoord
-};
-
-#define XYZ1(_x_, _y_, _z_)         (_x_), (_y_), (_z_), 1.f
-#define UV(_u_, _v_)                (_u_), (_v_), 0.f, 1.f
 
 static const float g_vertex_buffer_data[] = {
     -1.0f,-1.0f,-1.0f,  // -X side
@@ -268,8 +213,127 @@ BreakCallback(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
     return false;
 }
 
+static void demo_handle_xcb_event(struct Demo *demo,
+                              const xcb_generic_event_t *event) {
+    uint8_t event_code = event->response_type & 0x7f;
+    switch (event_code) {
+    case XCB_EXPOSE:
+        // TODO: Resize window
+        break;
+    case XCB_CLIENT_MESSAGE:
+        if ((*(xcb_client_message_event_t *)event).data.data32[0] ==
+            (*demo->atom_wm_delete_window).atom) {
+            demo->m_quit = true;
+        }
+        break;
+    case XCB_KEY_RELEASE: {
+        const xcb_key_release_event_t *key =
+            (const xcb_key_release_event_t *)event;
+
+        switch (key->detail) {
+        case 0x9: // Escape
+            demo->m_quit = true;
+            break;
+        case 0x71: // left arrow key
+            demo->m_spin_angle += demo->m_spin_increment;
+            break;
+        case 0x72: // right arrow key
+            demo->m_spin_angle -= demo->m_spin_increment;
+            break;
+        case 0x41:
+            demo->m_pause = !demo->m_pause;
+            break;
+        }
+    } break;
+    case XCB_CONFIGURE_NOTIFY: {
+        const xcb_configure_notify_event_t *cfg =
+            (const xcb_configure_notify_event_t *)event;
+        if ((demo->m_width != cfg->width) || (demo->m_height != cfg->height)) {
+            demo->m_width = cfg->width;
+            demo->m_height = cfg->height;
+            demo->resize_vk();
+        }
+    } break;
+    default:
+        break;
+    }
+}
+
+static void demo_run_xcb(struct Demo *demo) {
+    xcb_flush(demo->connection);
+
+    while (!demo->m_quit) {
+        xcb_generic_event_t *event;
+
+        if (demo->m_pause) {
+            event = xcb_wait_for_event(demo->connection);
+        } else {
+            event = xcb_poll_for_event(demo->connection);
+        }
+        if (event) {
+            demo_handle_xcb_event(demo, event);
+            free(event);
+        }
+
+        // Wait for work to finish before updating MVP.
+        vkDeviceWaitIdle(demo->m_device);
+        demo->update_data_buffer();
+
+        demo->draw();
+
+        // Wait for work to finish before updating MVP.
+        vkDeviceWaitIdle(demo->m_device);
+        demo->curFrame++;
+        if (demo->frameCount != INT32_MAX && demo->curFrame == demo->frameCount)
+            demo->m_quit = true;
+    }
+}
+
+static void demo_create_xcb_window(struct Demo *demo) {
+
+
+
+
+    uint32_t value_mask, value_list[32];
+    demo->xcb_window = xcb_generate_id(demo->connection);
+
+    value_mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
+    value_list[0] = demo->screen->black_pixel;
+    value_list[1] = XCB_EVENT_MASK_KEY_RELEASE | XCB_EVENT_MASK_EXPOSURE |
+                    XCB_EVENT_MASK_STRUCTURE_NOTIFY;
+
+    xcb_create_window(demo->connection, XCB_COPY_FROM_PARENT, demo->xcb_window,
+                      demo->screen->root, 0, 0, demo->m_width, demo->m_height, 0,
+                      XCB_WINDOW_CLASS_INPUT_OUTPUT, demo->screen->root_visual,
+                      value_mask, value_list);
+
+    /* Magic code that will send notification when window is destroyed */
+    xcb_intern_atom_cookie_t cookie =
+        xcb_intern_atom(demo->connection, 1, 12, "WM_PROTOCOLS");
+    xcb_intern_atom_reply_t *reply =
+        xcb_intern_atom_reply(demo->connection, cookie, 0);
+
+    xcb_intern_atom_cookie_t cookie2 =
+        xcb_intern_atom(demo->connection, 0, 16, "WM_DELETE_WINDOW");
+    demo->atom_wm_delete_window =
+        xcb_intern_atom_reply(demo->connection, cookie2, 0);
+
+    xcb_change_property(demo->connection, XCB_PROP_MODE_REPLACE, demo->xcb_window,
+                        (*reply).atom, 4, 32, 1,
+                        &(*demo->atom_wm_delete_window).atom);
+    free(reply);
+
+    xcb_map_window(demo->connection, demo->xcb_window);
+
+    // Force the x/y coordinates to 100,100 results are identical in consecutive
+    // runs
+    const uint32_t coords[] = {100, 100};
+    xcb_configure_window(demo->connection, demo->xcb_window,
+                         XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, coords);
+}
+
 int main(int argc, char **argv) {
-    QGuiApplication app(argc, argv);
+/*    QGuiApplication app(argc, argv);
     Demo demo;
     QSurfaceFormat format;
     format.setRedBufferSize(8);
@@ -287,7 +351,16 @@ int main(int argc, char **argv) {
     demo.init_vk_swapchain();
     demo.prepare();
     t.start();
-    app.exec();
+    app.exec();*/
+
+    Demo demo;
+    demo_create_xcb_window(&demo);
+
+    demo.init_vk();
+    demo.init_vk_swapchain();
+    demo.prepare();
+    demo_run_xcb(&demo);
+
     return validation_error;
 }
 
@@ -354,6 +427,29 @@ Demo::Demo() :
                        1.0f, 0.1f, 100.0f);
     m_view_matrix.lookAt(eye, origin, up);
     m_model_matrix = QMatrix();
+    m_width = 500;
+    m_height = 500;
+    frameCount = INT32_MAX;
+    curFrame = 0;
+
+    const xcb_setup_t *setup;
+    xcb_screen_iterator_t iter;
+    int scr;
+
+    connection = xcb_connect(NULL, &scr);
+    if (connection == NULL) {
+        printf("Cannot find a compatible Vulkan installable client driver "
+               "(ICD).\nExiting ...\n");
+        fflush(stdout);
+        exit(1);
+    }
+
+    setup = xcb_get_setup(connection);
+    iter = xcb_setup_roots_iterator(setup);
+    while (scr-- > 0)
+        xcb_screen_next(&iter);
+
+    screen = iter.data;
 }
 
 Demo::~Demo()
@@ -383,7 +479,6 @@ bool Demo::memory_type_from_properties(uint32_t typeBits,
 }
 
 void Demo::flush_init_cmd() {
-    qDebug()<<__PRETTY_FUNCTION__;
 
     VkResult U_ASSERT_ONLY err;
 
@@ -421,12 +516,10 @@ void Demo::set_image_layout(VkImage image,
                                   VkImageLayout old_image_layout,
                                   VkImageLayout new_image_layout,
                                   VkAccessFlagBits srcAccessMask) {
-    qDebug()<<__PRETTY_FUNCTION__;
-
     VkResult U_ASSERT_ONLY err;
 
     if (m_cmd == VK_NULL_HANDLE) {
-        VkCommandBufferAllocateInfo cmd_ai;
+        VkCommandBufferAllocateInfo cmd_ai = {};
         cmd_ai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         cmd_ai.pNext = NULL;
         cmd_ai.commandPool = m_cmd_pool;
@@ -495,7 +588,6 @@ void Demo::set_image_layout(VkImage image,
 }
 
 void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
-    qDebug()<<__PRETTY_FUNCTION__;
 
     VkCommandBufferInheritanceInfo cmd_buf_hinfo = {};
         cmd_buf_hinfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
@@ -513,24 +605,28 @@ void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
         cmd_buf_info.flags = 0;
         cmd_buf_info.pInheritanceInfo = &cmd_buf_hinfo;
 
+        static float q = 0.0f;
+        q+=1.0;
+        if(q>1.0f) q = 0.0f;
 
-    VkClearValue clear_values[2];
+    VkClearValue clear_values[2] = {{},{}};
     clear_values[0].color.float32[0] = 1.0f;
-    clear_values[0].color.float32[1] = 1.0f;
-    clear_values[0].color.float32[2] = 0.2f;
+    clear_values[0].color.float32[1] = 0.0f;
+    clear_values[0].color.float32[2] = q;
     clear_values[0].color.float32[3] = 0.2f;
     clear_values[1].depthStencil = {1.0f, 0};
 
-    VkRenderPassBeginInfo rp_begin = {}; //FIXME constructor, not this C99 syntax
-        rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        rp_begin.pNext = NULL;
-        rp_begin.renderPass = m_render_pass;
-        rp_begin.framebuffer = m_framebuffers[m_current_buffer];
-        rp_begin.renderArea.offset= {0, 0 };
-        rp_begin.renderArea.extent.width = width();
-        rp_begin.renderArea.extent.height = height();
-        rp_begin.clearValueCount = 2;
-        rp_begin.pClearValues = clear_values;
+    VkRenderPassBeginInfo rp_begin = {};
+    rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rp_begin.pNext = NULL;
+    rp_begin.renderPass = m_render_pass;
+    rp_begin.framebuffer = m_framebuffers[m_current_buffer];
+    rp_begin.renderArea.offset.x = 0;
+    rp_begin.renderArea.offset.y = 0;
+    rp_begin.renderArea.extent.width = width();
+    rp_begin.renderArea.extent.height = height();
+    rp_begin.clearValueCount = 2;
+    rp_begin.pClearValues = clear_values;
 
     VkResult U_ASSERT_ONLY err;
 
@@ -544,7 +640,7 @@ void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
                             m_pipeline_layout, 0, 1, &m_desc_set, 0,
                             NULL);
 
-    VkViewport viewport;
+    VkViewport viewport = {};
     memset(&viewport, 0, sizeof(viewport));
     viewport.height = (float)height();
     viewport.width = (float)width();
@@ -552,11 +648,11 @@ void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
     viewport.maxDepth = (float)1.0f;
     vkCmdSetViewport(cmd_buf, 0, 1, &viewport);
 
-    VkRect2D scissor;
+    VkRect2D scissor {};
     memset(&scissor, 0, sizeof(scissor));
-    scissor.extent.width = (uint32_t)width();
+    scissor.extent.width = (uint32_t)width() - 80;
     scissor.extent.height = (uint32_t)height(); //FIXME protect against -1?
-    scissor.offset.x = 0;
+    scissor.offset.x = 40 * q;
     scissor.offset.y = 0;
     vkCmdSetScissor(cmd_buf, 0, 1, &scissor);
 
@@ -564,15 +660,15 @@ void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
     vkCmdEndRenderPass(cmd_buf);
 
     VkImageMemoryBarrier prePresentBarrier = {};
-        prePresentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        prePresentBarrier.pNext = NULL;
-        prePresentBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        prePresentBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-        prePresentBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        prePresentBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-        prePresentBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        prePresentBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        prePresentBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    prePresentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    prePresentBarrier.pNext = NULL;
+    prePresentBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    prePresentBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    prePresentBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    prePresentBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    prePresentBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    prePresentBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    prePresentBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 
     prePresentBarrier.image = m_buffers[m_current_buffer].image;
     VkImageMemoryBarrier *pmemory_barrier = &prePresentBarrier;
@@ -585,8 +681,6 @@ void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
 }
 
 void Demo::update_data_buffer() {
-    qDebug()<<__PRETTY_FUNCTION__;
-
     QMatrix4x4 MVP, VP;
     int matrixSize = sizeof(MVP);
     uint8_t *pData;
@@ -610,11 +704,9 @@ void Demo::update_data_buffer() {
 }
 
 void Demo::draw() {
-    qDebug()<<__PRETTY_FUNCTION__;
-
     VkResult U_ASSERT_ONLY err;
-    VkSemaphore presentCompleteSemaphore;
-    VkSemaphoreCreateInfo presentCompleteSemaphoreCreateInfo;
+    VkSemaphore presentCompleteSemaphore = 0;
+    VkSemaphoreCreateInfo presentCompleteSemaphoreCreateInfo = {};
     presentCompleteSemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     presentCompleteSemaphoreCreateInfo.pNext = NULL;
     presentCompleteSemaphoreCreateInfo.flags = 0;
@@ -661,7 +753,7 @@ void Demo::draw() {
     // FIXME/TODO: DEAL WITH VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
 
     VkPipelineStageFlags pipe_stage_flags = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    VkSubmitInfo submit_info;
+    VkSubmitInfo submit_info = {};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit_info.pNext = NULL;
     submit_info.waitSemaphoreCount = 1;
@@ -675,12 +767,14 @@ void Demo::draw() {
     err = vkQueueSubmit(m_queue, 1, &submit_info, nullFence);
     assert(!err);
 
-    VkPresentInfoKHR present;
+    VkPresentInfoKHR present = {};
     present.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     present.pNext = NULL;
     present.swapchainCount = 1;
     present.pSwapchains = &m_swapchain;
     present.pImageIndices = &m_current_buffer;
+    present.waitSemaphoreCount = 0;
+    present.pResults = 0;
 
     // TBD/TODO: SHOULD THE "present" PARAMETER BE "const" IN THE HEADER?
     err = fpQueuePresentKHR(m_queue, &present);
@@ -708,12 +802,12 @@ void Demo::prepare_buffers() {
     VkSwapchainKHR oldSwapchain = m_swapchain;
 
     // Check the surface capabilities and formats
-    VkSurfaceCapabilitiesKHR surfCapabilities;
+    VkSurfaceCapabilitiesKHR surfCapabilities = {};
     err = fpGetPhysicalDeviceSurfaceCapabilitiesKHR(
         m_gpu, m_surface, &surfCapabilities);
     assert(!err);
 
-    uint32_t presentModeCount;
+    uint32_t presentModeCount = 0;
     err = fpGetPhysicalDeviceSurfacePresentModesKHR(
         m_gpu, m_surface, &presentModeCount, NULL);
     assert(!err);
@@ -724,7 +818,7 @@ void Demo::prepare_buffers() {
         m_gpu, m_surface, &presentModeCount, presentModes);
     assert(!err);
 
-    VkExtent2D swapchainExtent;
+    VkExtent2D swapchainExtent = {};
     // width and height are either both -1, or both not -1.
     if (surfCapabilities.currentExtent.width == (uint32_t)-1) {
         // If the surface size is undefined, the size is set to
@@ -734,7 +828,9 @@ void Demo::prepare_buffers() {
     } else {
         // If the surface size is defined, the swap chain size must match
         swapchainExtent = surfCapabilities.currentExtent;
-        resize(surfCapabilities.currentExtent.width, surfCapabilities.currentExtent.height); // FIXME why
+//        resize(surfCapabilities.currentExtent.width, surfCapabilities.currentExtent.height); // FIXME why
+        m_width = surfCapabilities.currentExtent.width;
+        m_height = surfCapabilities.currentExtent.height;
     }
 
     // If mailbox mode is available, use it, as is the lowest-latency non-
@@ -764,7 +860,7 @@ void Demo::prepare_buffers() {
         desiredNumberOfSwapchainImages = surfCapabilities.maxImageCount;
     }
 
-    VkSurfaceTransformFlagBitsKHR preTransform;
+    VkSurfaceTransformFlagBitsKHR preTransform = {};
     if (surfCapabilities.supportedTransforms &
         VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) {
         preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
@@ -1376,8 +1472,8 @@ VkShaderModule Demo::prepare_shader_module(const void *code, size_t size) {
     qDebug()<<__PRETTY_FUNCTION__;
 
     VkResult U_ASSERT_ONLY err;
-    VkShaderModule module;
-    VkShaderModuleCreateInfo moduleCreateInfo;
+    VkShaderModule module = 0;
+    VkShaderModuleCreateInfo moduleCreateInfo = {};
 
     moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     moduleCreateInfo.pNext = NULL;
@@ -1451,17 +1547,17 @@ VkShaderModule Demo::prepare_fs() {
 void Demo::prepare_pipeline() {
     qDebug()<<__PRETTY_FUNCTION__;
 
-    VkGraphicsPipelineCreateInfo pipeline_ci;
-    VkPipelineCacheCreateInfo pipelineCache_ci;
-    VkPipelineVertexInputStateCreateInfo vi;
-    VkPipelineInputAssemblyStateCreateInfo ia;
-    VkPipelineRasterizationStateCreateInfo rs;
-    VkPipelineColorBlendStateCreateInfo cb;
-    VkPipelineDepthStencilStateCreateInfo ds;
-    VkPipelineViewportStateCreateInfo vp;
-    VkPipelineMultisampleStateCreateInfo ms;
+    VkGraphicsPipelineCreateInfo pipeline_ci = {};
+    VkPipelineCacheCreateInfo pipelineCache_ci = {};
+    VkPipelineVertexInputStateCreateInfo vi = {};
+    VkPipelineInputAssemblyStateCreateInfo ia = {};
+    VkPipelineRasterizationStateCreateInfo rs = {};
+    VkPipelineColorBlendStateCreateInfo cb = {};
+    VkPipelineDepthStencilStateCreateInfo ds = {};
+    VkPipelineViewportStateCreateInfo vp = {};
+    VkPipelineMultisampleStateCreateInfo ms = {};
     VkDynamicState dynamicStateEnables[VK_DYNAMIC_STATE_RANGE_SIZE];
-    VkPipelineDynamicStateCreateInfo dynamicState;
+    VkPipelineDynamicStateCreateInfo dynamicState = {};
     VkResult U_ASSERT_ONLY err;
 
     memset(dynamicStateEnables, 0, sizeof dynamicStateEnables);
@@ -1570,7 +1666,7 @@ void Demo::prepare_pipeline() {
 void Demo::prepare_descriptor_pool() {
     qDebug()<<__PRETTY_FUNCTION__;
 
-    VkDescriptorPoolSize type_counts[2] = {};
+    VkDescriptorPoolSize type_counts[2] = {{},{}};
     type_counts[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     type_counts[0].descriptorCount = 1;
     type_counts[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -1594,7 +1690,7 @@ void Demo::prepare_descriptor_set() {
     qDebug()<<__PRETTY_FUNCTION__;
 
     VkDescriptorImageInfo tex_descs[DEMO_TEXTURE_COUNT];
-    VkWriteDescriptorSet writes[2];
+    VkWriteDescriptorSet writes[2]={{},{}};
     VkResult U_ASSERT_ONLY err;
     uint32_t i;
 
@@ -1636,7 +1732,7 @@ void Demo::prepare_descriptor_set() {
 void Demo::prepare_framebuffers() {
     qDebug()<<__PRETTY_FUNCTION__;
 
-    VkImageView attachments[2];
+    VkImageView attachments[2] = {{},{}};
     attachments[1] = m_depth.view;
 
     VkFramebufferCreateInfo fb_info = {};
@@ -1838,96 +1934,6 @@ void Demo::resize_vk() {
     prepare();
 }
 
-
-/*static void demo_handle_xcb_event(Demo *demo,
-                              const xcb_generic_event_t *event) {
-    uint8_t event_code = event->response_type & 0x7f;
-    switch (event_code) {
-    case XCB_EXPOSE:
-        // TODO: Resize window
-        break;
-    case XCB_CLIENT_MESSAGE:
-        if ((*(xcb_client_message_event_t *)event).data.data32[0] ==
-            (*demo->atom_wm_delete_window).atom) {
-            demo->quit = true;
-        }
-        break;
-    case XCB_KEY_RELEASE: {
-        const xcb_key_release_event_t *key =
-            (const xcb_key_release_event_t *)event;
-
-        switch (key->detail) {
-        case 0x9: // Escape
-            demo->quit = true;
-            break;
-        case 0x71: // left arrow key
-            demo->spin_angle += demo->spin_increment;
-            break;
-        case 0x72: // right arrow key
-            demo->spin_angle -= demo->spin_increment;
-            break;
-        case 0x41:
-            demo->pause = !demo->pause;
-            break;
-        }
-    } break;
-    case XCB_CONFIGURE_NOTIFY: {
-        const xcb_configure_notify_event_t *cfg =
-            (const xcb_configure_notify_event_t *)event;
-        if ((demo->width != cfg->width) || (demo->height != cfg->height)) {
-            demo->width = cfg->width;
-            demo->height = cfg->height;
-            demo_resize(demo);
-        }
-    } break;
-    default:
-        break;
-    }
-}
-*/
-
-#if 0
-static void demo_create_xcb_window(Demo *demo) {
-    uint32_t value_mask, value_list[32];
-
-    demo->xcb_window = xcb_generate_id(demo->connection);
-
-    value_mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
-    value_list[0] = demo->screen->black_pixel;
-    value_list[1] = XCB_EVENT_MASK_KEY_RELEASE | XCB_EVENT_MASK_EXPOSURE |
-                    XCB_EVENT_MASK_STRUCTURE_NOTIFY;
-
-    xcb_create_window(demo->connection, XCB_COPY_FROM_PARENT, demo->xcb_window,
-                      demo->screen->root, 0, 0, demo->width, demo->height, 0,
-                      XCB_WINDOW_CLASS_INPUT_OUTPUT, demo->screen->root_visual,
-                      value_mask, value_list);
-
-    /* Magic code that will send notification when window is destroyed */
-    xcb_intern_atom_cookie_t cookie =
-        xcb_intern_atom(demo->connection, 1, 12, "WM_PROTOCOLS");
-    xcb_intern_atom_reply_t *reply =
-        xcb_intern_atom_reply(demo->connection, cookie, 0);
-
-    xcb_intern_atom_cookie_t cookie2 =
-        xcb_intern_atom(demo->connection, 0, 16, "WM_DELETE_WINDOW");
-    demo->atom_wm_delete_window =
-        xcb_intern_atom_reply(demo->connection, cookie2, 0);
-
-    xcb_change_property(demo->connection, XCB_PROP_MODE_REPLACE, demo->xcb_window,
-                        (*reply).atom, 4, 32, 1,
-                        &(*demo->atom_wm_delete_window).atom);
-    free(reply);
-
-    xcb_map_window(demo->connection, demo->xcb_window);
-
-    // Force the x/y coordinates to 100,100 results are identical in consecutive
-    // runs
-    const uint32_t coords[] = {100, 100};
-    xcb_configure_window(demo->connection, demo->xcb_window,
-                         XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, coords);
-}
-#endif
-
 /*
  * Return 1 (true) if all layer names specified in check_names
  * can be found in given layer properties.
@@ -2094,15 +2100,6 @@ void Demo::init_vk() {
                  "information.\n",
                  "vkCreateInstance Failure");
     }
-/*    if (use_xlib && !xlibSurfaceExtFound) {
-        ERR_EXIT("vkEnumerateInstanceExtensionProperties failed to find "
-                 "the " VK_KHR_XLIB_SURFACE_EXTENSION_NAME
-                 " extension.\n\nDo you have a compatible "
-                 "Vulkan installable client driver (ICD) installed?\nPlease "
-                 "look at the Getting Started guide for additional "
-                 "information.\n",
-                 "vkCreateInstance Failure");
-    }*/
     VkApplicationInfo app = {};
     app.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     app.pNext = NULL;
@@ -2126,7 +2123,7 @@ void Demo::init_vk() {
      * After the instance is created, we use the instance-based
      * function to register the final callback.
      */
-    VkDebugReportCallbackCreateInfoEXT dbgCreateInfo;
+    VkDebugReportCallbackCreateInfoEXT dbgCreateInfo = {};
     if (m_validate) {
         dbgCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
         dbgCreateInfo.pNext = NULL;
@@ -2137,7 +2134,7 @@ void Demo::init_vk() {
         inst_info.pNext = &dbgCreateInfo;
     }
 
-    uint32_t gpu_count;
+    uint32_t gpu_count = 0;
 
     err = vkCreateInstance(&inst_info, NULL, &m_inst);
     if (err == VK_ERROR_INCOMPATIBLE_DRIVER) {
@@ -2380,18 +2377,18 @@ void Demo::init_vk_swapchain() {
         vkCreateWin32SurfaceKHR(inst, &createInfo, NULL, &surface);
 #else
 
-    QPlatformNativeInterface *native =  QGuiApplication::platformNativeInterface();
-    Q_ASSERT(native);
-    xcb_connection_t* connection = static_cast<xcb_connection_t *>(native->nativeResourceForWindow("connection", this));
+//    QPlatformNativeInterface *native =  QGuiApplication::platformNativeInterface();
+//    Q_ASSERT(native);
+//    xcb_connection_t* connection = static_cast<xcb_connection_t *>(native->nativeResourceForWindow("connection", this));
     Q_ASSERT(connection);
-    xcb_window_t window = static_cast<xcb_window_t>(winId());
-    qDebug()<<"connection and winid:"<<connection<<window;
-    VkXcbSurfaceCreateInfoKHR createInfo;
+//    xcb_window_t window = static_cast<xcb_window_t>(winId());
+    qDebug()<<"connection and winid:"<<connection<<xcb_window;
+    VkXcbSurfaceCreateInfoKHR createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
     createInfo.pNext = NULL;
     createInfo.flags = 0;
     createInfo.connection = connection;
-    createInfo.window = window;
+    createInfo.window = xcb_window;
     err = vkCreateXcbSurfaceKHR(m_inst, &createInfo, NULL, &m_surface);
 
 #endif // _WIN32
@@ -2466,8 +2463,9 @@ void Demo::init_vk_swapchain() {
 
     // Get the list of VkFormat's that are supported:
     uint32_t formatCount;
-    err = fpGetPhysicalDeviceSurfaceFormatsKHR(m_gpu, m_surface,
-                                                     &formatCount, NULL);
+    err = fpGetPhysicalDeviceSurfaceFormatsKHR(m_gpu, m_surface, &formatCount, NULL);
+    qDebug()<<"format count"<<formatCount;
+    assert(formatCount);
     assert(!err);
     VkSurfaceFormatKHR *surfFormats =
         (VkSurfaceFormatKHR *)malloc(formatCount * sizeof(VkSurfaceFormatKHR));
@@ -2491,5 +2489,3 @@ void Demo::init_vk_swapchain() {
     // Get Memory information and properties
     vkGetPhysicalDeviceMemoryProperties(m_gpu, &m_memory_properties);
 }
-
-
