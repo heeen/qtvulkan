@@ -142,6 +142,10 @@ VKAPI_ATTR VkBool32 VKAPI_CALL
 dbgFunc(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
         uint64_t srcObject, size_t location, int32_t msgCode,
         const char *pLayerPrefix, const char *pMsg, void *pUserData) {
+
+    printf("%s\n", pMsg);
+    fflush(stdout);
+    return false;
     char *message = (char *)malloc(strlen(pMsg) + 100);
 
     Q_UNUSED(objType)
@@ -150,6 +154,7 @@ dbgFunc(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
     Q_UNUSED(pUserData)
 
     assert(message);
+
 
     if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
         sprintf(message, "ERROR: [%s] Code %d : %s", pLayerPrefix, msgCode,
@@ -213,126 +218,18 @@ BreakCallback(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
     return false;
 }
 
-static void demo_handle_xcb_event(struct Demo *demo,
-                              const xcb_generic_event_t *event) {
-    uint8_t event_code = event->response_type & 0x7f;
-    switch (event_code) {
-    case XCB_EXPOSE:
-        // TODO: Resize window
-        break;
-    case XCB_CLIENT_MESSAGE:
-        if ((*(xcb_client_message_event_t *)event).data.data32[0] ==
-            (*demo->atom_wm_delete_window).atom) {
-            demo->m_quit = true;
-        }
-        break;
-    case XCB_KEY_RELEASE: {
-        const xcb_key_release_event_t *key =
-            (const xcb_key_release_event_t *)event;
+#if 0
+#define DEBUG_ENTRY printf("===========%s=========\n", __PRETTY_FUNCTION__)
+#else
+#define DEBUG_ENTRY {}
+#endif
 
-        switch (key->detail) {
-        case 0x9: // Escape
-            demo->m_quit = true;
-            break;
-        case 0x71: // left arrow key
-            demo->m_spin_angle += demo->m_spin_increment;
-            break;
-        case 0x72: // right arrow key
-            demo->m_spin_angle -= demo->m_spin_increment;
-            break;
-        case 0x41:
-            demo->m_pause = !demo->m_pause;
-            break;
-        }
-    } break;
-    case XCB_CONFIGURE_NOTIFY: {
-        const xcb_configure_notify_event_t *cfg =
-            (const xcb_configure_notify_event_t *)event;
-        if ((demo->m_width != cfg->width) || (demo->m_height != cfg->height)) {
-            demo->m_width = cfg->width;
-            demo->m_height = cfg->height;
-            demo->resize_vk();
-        }
-    } break;
-    default:
-        break;
-    }
-}
-
-static void demo_run_xcb(struct Demo *demo) {
-    xcb_flush(demo->connection);
-
-    while (!demo->m_quit) {
-        xcb_generic_event_t *event;
-
-        if (demo->m_pause) {
-            event = xcb_wait_for_event(demo->connection);
-        } else {
-            event = xcb_poll_for_event(demo->connection);
-        }
-        if (event) {
-            demo_handle_xcb_event(demo, event);
-            free(event);
-        }
-
-        // Wait for work to finish before updating MVP.
-        vkDeviceWaitIdle(demo->m_device);
-        demo->update_data_buffer();
-
-        demo->draw();
-
-        // Wait for work to finish before updating MVP.
-        vkDeviceWaitIdle(demo->m_device);
-        demo->curFrame++;
-        if (demo->frameCount != INT32_MAX && demo->curFrame == demo->frameCount)
-            demo->m_quit = true;
-    }
-}
-
-static void demo_create_xcb_window(struct Demo *demo) {
-
-
-
-
-    uint32_t value_mask, value_list[32];
-    demo->xcb_window = xcb_generate_id(demo->connection);
-
-    value_mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
-    value_list[0] = demo->screen->black_pixel;
-    value_list[1] = XCB_EVENT_MASK_KEY_RELEASE | XCB_EVENT_MASK_EXPOSURE |
-                    XCB_EVENT_MASK_STRUCTURE_NOTIFY;
-
-    xcb_create_window(demo->connection, XCB_COPY_FROM_PARENT, demo->xcb_window,
-                      demo->screen->root, 0, 0, demo->m_width, demo->m_height, 0,
-                      XCB_WINDOW_CLASS_INPUT_OUTPUT, demo->screen->root_visual,
-                      value_mask, value_list);
-
-    /* Magic code that will send notification when window is destroyed */
-    xcb_intern_atom_cookie_t cookie =
-        xcb_intern_atom(demo->connection, 1, 12, "WM_PROTOCOLS");
-    xcb_intern_atom_reply_t *reply =
-        xcb_intern_atom_reply(demo->connection, cookie, 0);
-
-    xcb_intern_atom_cookie_t cookie2 =
-        xcb_intern_atom(demo->connection, 0, 16, "WM_DELETE_WINDOW");
-    demo->atom_wm_delete_window =
-        xcb_intern_atom_reply(demo->connection, cookie2, 0);
-
-    xcb_change_property(demo->connection, XCB_PROP_MODE_REPLACE, demo->xcb_window,
-                        (*reply).atom, 4, 32, 1,
-                        &(*demo->atom_wm_delete_window).atom);
-    free(reply);
-
-    xcb_map_window(demo->connection, demo->xcb_window);
-
-    // Force the x/y coordinates to 100,100 results are identical in consecutive
-    // runs
-    const uint32_t coords[] = {100, 100};
-    xcb_configure_window(demo->connection, demo->xcb_window,
-                         XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, coords);
-}
+static void demo_create_xcb_window(struct Demo *demo);
+static void demo_run_xcb(struct Demo *demo);
 
 int main(int argc, char **argv) {
+    setvbuf(stdout, NULL, _IONBF, 0);
+    DEBUG_ENTRY;
 /*    QGuiApplication app(argc, argv);
     Demo demo;
     QSurfaceFormat format;
@@ -354,9 +251,9 @@ int main(int argc, char **argv) {
     app.exec();*/
 
     Demo demo;
-    demo_create_xcb_window(&demo);
 
     demo.init_vk();
+    demo_create_xcb_window(&demo);
     demo.init_vk_swapchain();
     demo.prepare();
     demo_run_xcb(&demo);
@@ -417,13 +314,13 @@ Demo::Demo() :
     fpAcquireNextImageKHR(0),
     fpQueuePresentKHR(0)
 {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
     QVector3D eye(0.0f, 3.0f, 5.0f);
     QVector3D origin(0, 0, 0);
     QVector3D up(0.0f, 1.0f, 0.0);
 
-    m_projection_matrix.perspective((float)qDegreesToRadians(45.0f),
+    m_projection_matrix.perspective(45.0f,
                        1.0f, 0.1f, 100.0f);
     m_view_matrix.lookAt(eye, origin, up);
     m_model_matrix = QMatrix();
@@ -460,7 +357,7 @@ Demo::~Demo()
 bool Demo::memory_type_from_properties(uint32_t typeBits,
                                         VkFlags requirements_mask,
                                         uint32_t *typeIndex) {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
     // Search memtypes to find first index with those properties
     for (uint32_t i = 0; i < 32; i++) {
@@ -479,6 +376,7 @@ bool Demo::memory_type_from_properties(uint32_t typeBits,
 }
 
 void Demo::flush_init_cmd() {
+    DEBUG_ENTRY;
 
     VkResult U_ASSERT_ONLY err;
 
@@ -516,6 +414,7 @@ void Demo::set_image_layout(VkImage image,
                                   VkImageLayout old_image_layout,
                                   VkImageLayout new_image_layout,
                                   VkAccessFlagBits srcAccessMask) {
+    DEBUG_ENTRY;
     VkResult U_ASSERT_ONLY err;
 
     if (m_cmd == VK_NULL_HANDLE) {
@@ -588,6 +487,7 @@ void Demo::set_image_layout(VkImage image,
 }
 
 void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
+    DEBUG_ENTRY;
 
     VkCommandBufferInheritanceInfo cmd_buf_hinfo = {};
         cmd_buf_hinfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
@@ -600,19 +500,16 @@ void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
         cmd_buf_hinfo.pipelineStatistics = 0;
 
     VkCommandBufferBeginInfo cmd_buf_info = {};
-        cmd_buf_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        cmd_buf_info.pNext = NULL;
-        cmd_buf_info.flags = 0;
-        cmd_buf_info.pInheritanceInfo = &cmd_buf_hinfo;
+    cmd_buf_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    cmd_buf_info.pNext = NULL;
+    cmd_buf_info.flags = 0;
+    cmd_buf_info.pInheritanceInfo = &cmd_buf_hinfo;
 
-        static float q = 0.0f;
-        q+=1.0;
-        if(q>1.0f) q = 0.0f;
 
     VkClearValue clear_values[2] = {{},{}};
-    clear_values[0].color.float32[0] = 1.0f;
-    clear_values[0].color.float32[1] = 0.0f;
-    clear_values[0].color.float32[2] = q;
+    clear_values[0].color.float32[0] = 0.2f;
+    clear_values[0].color.float32[1] = 0.2f;
+    clear_values[0].color.float32[2] = 0.4f;
     clear_values[0].color.float32[3] = 0.2f;
     clear_values[1].depthStencil = {1.0f, 0};
 
@@ -650,9 +547,9 @@ void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
 
     VkRect2D scissor {};
     memset(&scissor, 0, sizeof(scissor));
-    scissor.extent.width = (uint32_t)width() - 80;
-    scissor.extent.height = (uint32_t)height(); //FIXME protect against -1?
-    scissor.offset.x = 40 * q;
+    scissor.extent.width = (uint32_t)qMax(0, width());
+    scissor.extent.height = (uint32_t)qMax(0, height());
+    scissor.offset.x = 0;
     scissor.offset.y = 0;
     vkCmdSetScissor(cmd_buf, 0, 1, &scissor);
 
@@ -681,15 +578,16 @@ void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
 }
 
 void Demo::update_data_buffer() {
+    DEBUG_ENTRY;
     QMatrix4x4 MVP, VP;
-    int matrixSize = sizeof(MVP);
+    int matrixSize = 16 * sizeof(float);
     uint8_t *pData;
     VkResult U_ASSERT_ONLY err;
 
     VP = m_projection_matrix * m_view_matrix;
 
     // Rotate 22.5 degrees around the Y axis
-    m_model_matrix.rotate(0.0f, 1.0f, 0.0f, (float)qDegreesToRadians(m_spin_angle));
+    m_model_matrix.rotate(0.01f, QVector3D(0.0f, 1.0f, 0.0f));
 
     MVP = VP * m_model_matrix;
 
@@ -698,12 +596,13 @@ void Demo::update_data_buffer() {
                       (void **)&pData);
     assert(!err);
 
-    memcpy(pData, (const void *)&MVP, matrixSize);
+    memcpy(pData, (const void *)MVP.data(), matrixSize);
 
     vkUnmapMemory(m_device, m_uniform_data.mem);
 }
 
 void Demo::draw() {
+    DEBUG_ENTRY;
     VkResult U_ASSERT_ONLY err;
     VkSemaphore presentCompleteSemaphore = 0;
     VkSemaphoreCreateInfo presentCompleteSemaphoreCreateInfo = {};
@@ -796,7 +695,7 @@ void Demo::draw() {
 }
 
 void Demo::prepare_buffers() {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
     VkResult U_ASSERT_ONLY err;
     VkSwapchainKHR oldSwapchain = m_swapchain;
@@ -959,7 +858,8 @@ void Demo::prepare_buffers() {
 }
 
 void Demo::prepare_depth() {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
+    DEBUG_ENTRY;
 
     const VkFormat depth_format = VK_FORMAT_D16_UNORM;
     VkImageCreateInfo image = {};
@@ -969,6 +869,7 @@ void Demo::prepare_depth() {
         image.format = depth_format;
         image.extent.width = width();
         image.extent.height = height();
+        image.extent.depth = 1;
         image.mipLevels = 1;
         image.arrayLayers = 1;
         image.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -1087,7 +988,7 @@ void Demo::prepare_texture_image(const char *filename,
                                        VkImageTiling tiling,
                                        VkImageUsageFlags usage,
                                        VkFlags required_props) {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
     const VkFormat tex_format = VK_FORMAT_R8G8B8A8_UNORM;
     uint32_t tex_width;
@@ -1155,9 +1056,12 @@ void Demo::prepare_texture_image(const char *filename,
 
         VkSubresourceLayout layout;
         void *data;
-        vkGetImageSubresourceLayout(m_device, tex_obj->image, &subres, &layout);
 
-        err = vkMapMemory(m_device, tex_obj->mem, 0, tex_obj->mem_alloc.allocationSize, 0, &data);
+        vkGetImageSubresourceLayout(m_device, tex_obj->image, &subres,
+                                    &layout);
+
+        err = vkMapMemory(m_device, tex_obj->mem, 0,
+                          tex_obj->mem_alloc.allocationSize, 0, &data);
         assert(!err);
 
         if (!loadTexture(filename, (uint8_t*)data, &layout, &tex_width, &tex_height)) {
@@ -1176,7 +1080,7 @@ void Demo::prepare_texture_image(const char *filename,
 }
 
 void Demo::destroy_texture_image(struct texture_object *tex_objs) {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
     /* clean up staging resources */
     vkFreeMemory(m_device, tex_objs->mem, NULL);
@@ -1184,7 +1088,7 @@ void Demo::destroy_texture_image(struct texture_object *tex_objs) {
 }
 
 void Demo::prepare_textures() {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
     const VkFormat tex_format = VK_FORMAT_R8G8B8A8_UNORM;
     VkFormatProperties props;
@@ -1304,7 +1208,7 @@ void Demo::prepare_textures() {
 }
 
 void Demo::prepare_cube_data_buffer() {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
     VkBufferCreateInfo buf_info;
     VkMemoryRequirements mem_reqs;
@@ -1374,7 +1278,7 @@ void Demo::prepare_cube_data_buffer() {
 }
 
 void Demo::prepare_descriptor_layout() {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
     VkDescriptorSetLayoutBinding layout_bindings[2] = {};
     layout_bindings[0].binding = 0;
@@ -1412,9 +1316,9 @@ void Demo::prepare_descriptor_layout() {
 }
 
 void Demo::prepare_render_pass() {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
-    VkAttachmentDescription attachments[2] = {};
+    VkAttachmentDescription attachments[2] = {{},{}};
     attachments[0].format = m_format;
     attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
     attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -1468,8 +1372,8 @@ void Demo::prepare_render_pass() {
     assert(!err);
 }
 
-VkShaderModule Demo::prepare_shader_module(const void *code, size_t size) {
-    qDebug()<<__PRETTY_FUNCTION__;
+VkShaderModule Demo::prepare_shader_module(const char *code, size_t size) {
+    DEBUG_ENTRY;
 
     VkResult U_ASSERT_ONLY err;
     VkShaderModule module = 0;
@@ -1490,7 +1394,7 @@ VkShaderModule Demo::prepare_shader_module(const void *code, size_t size) {
 char *demo_read_spv(const char *filename, size_t *psize) {
     long int size;
     size_t U_ASSERT_ONLY retval;
-    void *shader_code;
+    char *shader_code;
 
     FILE *fp = fopen(filename, "rb");
     if (!fp)
@@ -1501,20 +1405,20 @@ char *demo_read_spv(const char *filename, size_t *psize) {
 
     fseek(fp, 0L, SEEK_SET);
 
-    shader_code = malloc(size);
+    shader_code = (char*)malloc(size);
     retval = fread(shader_code, size, 1, fp);
     assert(retval == 1);
 
     *psize = size;
 
     fclose(fp);
-    return (char*)shader_code;
+    return shader_code;
 }
 
 VkShaderModule Demo::prepare_vs() {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
-    void *vertShaderCode;
+    char *vertShaderCode;
     size_t size;
 
     vertShaderCode = demo_read_spv("cube-vert.spv", &size);
@@ -1529,9 +1433,9 @@ VkShaderModule Demo::prepare_vs() {
 }
 
 VkShaderModule Demo::prepare_fs() {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
-    void *fragShaderCode;
+    char *fragShaderCode;
     size_t size;
 
     fragShaderCode = demo_read_spv("cube-frag.spv", &size);
@@ -1545,7 +1449,7 @@ VkShaderModule Demo::prepare_fs() {
 }
 
 void Demo::prepare_pipeline() {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
     VkGraphicsPipelineCreateInfo pipeline_ci = {};
     VkPipelineCacheCreateInfo pipelineCache_ci = {};
@@ -1588,21 +1492,20 @@ void Demo::prepare_pipeline() {
 
     memset(&cb, 0, sizeof(cb));
     cb.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    VkPipelineColorBlendAttachmentState att_state[1];
-    memset(att_state, 0, sizeof(att_state));
+    VkPipelineColorBlendAttachmentState *att_state = (VkPipelineColorBlendAttachmentState*)malloc(sizeof(*att_state));
+    memset(att_state, 0x0, sizeof(*att_state));
     att_state[0].colorWriteMask = 0xf;
     att_state[0].blendEnable = VK_FALSE;
+
     cb.attachmentCount = 1;
     cb.pAttachments = att_state;
 
     memset(&vp, 0, sizeof(vp));
     vp.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     vp.viewportCount = 1;
-    dynamicStateEnables[dynamicState.dynamicStateCount++] =
-        VK_DYNAMIC_STATE_VIEWPORT;
+    dynamicStateEnables[dynamicState.dynamicStateCount++] = VK_DYNAMIC_STATE_VIEWPORT;
     vp.scissorCount = 1;
-    dynamicStateEnables[dynamicState.dynamicStateCount++] =
-        VK_DYNAMIC_STATE_SCISSOR;
+    dynamicStateEnables[dynamicState.dynamicStateCount++] = VK_DYNAMIC_STATE_SCISSOR;
 
     memset(&ds, 0, sizeof(ds));
     ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
@@ -1652,8 +1555,8 @@ void Demo::prepare_pipeline() {
     pipeline_ci.pStages = shaderStages;
     pipeline_ci.renderPass = m_render_pass;
     pipeline_ci.pDynamicState = &dynamicState;
-
     pipeline_ci.renderPass = m_render_pass;
+
 
     err = vkCreateGraphicsPipelines(m_device, m_pipelineCache, 1,
                                     &pipeline_ci, NULL, &m_pipeline);
@@ -1664,7 +1567,7 @@ void Demo::prepare_pipeline() {
 }
 
 void Demo::prepare_descriptor_pool() {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
     VkDescriptorPoolSize type_counts[2] = {{},{}};
     type_counts[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -1687,7 +1590,7 @@ void Demo::prepare_descriptor_pool() {
 }
 
 void Demo::prepare_descriptor_set() {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
     VkDescriptorImageInfo tex_descs[DEMO_TEXTURE_COUNT];
     VkWriteDescriptorSet writes[2]={{},{}};
@@ -1730,7 +1633,7 @@ void Demo::prepare_descriptor_set() {
 }
 
 void Demo::prepare_framebuffers() {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
     VkImageView attachments[2] = {{},{}};
     attachments[1] = m_depth.view;
@@ -1770,7 +1673,7 @@ void Demo::redraw()
 }
 
 void Demo::prepare() {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
     Demo* demo = this; //FIXME
     VkResult U_ASSERT_ONLY err;
@@ -1828,7 +1731,7 @@ void Demo::prepare() {
 }
 
 void Demo::cleanup() {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
     uint32_t i;
 
@@ -1881,7 +1784,7 @@ void Demo::cleanup() {
 }
 
 void Demo::resize_vk() {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
     uint32_t i;
 
@@ -1934,6 +1837,127 @@ void Demo::resize_vk() {
     prepare();
 }
 
+
+static void demo_handle_xcb_event(struct Demo *demo,
+                              const xcb_generic_event_t *event) {
+    DEBUG_ENTRY;
+    uint8_t event_code = event->response_type & 0x7f;
+    switch (event_code) {
+    case XCB_EXPOSE:
+        // TODO: Resize window
+        break;
+    case XCB_CLIENT_MESSAGE:
+        if ((*(xcb_client_message_event_t *)event).data.data32[0] ==
+            (*demo->atom_wm_delete_window).atom) {
+            demo->m_quit = true;
+        }
+        break;
+    case XCB_KEY_RELEASE: {
+        const xcb_key_release_event_t *key =
+            (const xcb_key_release_event_t *)event;
+
+        switch (key->detail) {
+        case 0x9: // Escape
+            demo->m_quit = true;
+            break;
+        case 0x71: // left arrow key
+            demo->m_spin_angle += demo->m_spin_increment;
+            break;
+        case 0x72: // right arrow key
+            demo->m_spin_angle -= demo->m_spin_increment;
+            break;
+        case 0x41:
+            demo->m_pause = !demo->m_pause;
+            break;
+        }
+    } break;
+    case XCB_CONFIGURE_NOTIFY: {
+        const xcb_configure_notify_event_t *cfg =
+            (const xcb_configure_notify_event_t *)event;
+        if ((demo->m_width != cfg->width) || (demo->m_height != cfg->height)) {
+            demo->m_width = cfg->width;
+            demo->m_height = cfg->height;
+            demo->resize_vk();
+        }
+    } break;
+    default:
+        break;
+    }
+}
+
+static void demo_run_xcb(struct Demo *demo) {
+    DEBUG_ENTRY;
+    xcb_flush(demo->connection);
+
+    while (!demo->m_quit) {
+        xcb_generic_event_t *event;
+
+        if (demo->m_pause) {
+            event = xcb_wait_for_event(demo->connection);
+        } else {
+            event = xcb_poll_for_event(demo->connection);
+        }
+        if (event) {
+            demo_handle_xcb_event(demo, event);
+            free(event);
+        }
+
+        // Wait for work to finish before updating MVP.
+        vkDeviceWaitIdle(demo->m_device);
+        demo->update_data_buffer();
+
+        demo->draw();
+
+        // Wait for work to finish before updating MVP.
+        vkDeviceWaitIdle(demo->m_device);
+        demo->curFrame++;
+        if (demo->frameCount != INT32_MAX && demo->curFrame == demo->frameCount)
+            demo->m_quit = true;
+    }
+}
+
+static void demo_create_xcb_window(struct Demo *demo) {
+    DEBUG_ENTRY;
+    uint32_t value_mask, value_list[32];
+
+    demo->xcb_window = xcb_generate_id(demo->connection);
+
+    value_mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
+    value_list[0] = demo->screen->black_pixel;
+    value_list[1] = XCB_EVENT_MASK_KEY_RELEASE | XCB_EVENT_MASK_EXPOSURE |
+                    XCB_EVENT_MASK_STRUCTURE_NOTIFY;
+
+    xcb_create_window(demo->connection, XCB_COPY_FROM_PARENT, demo->xcb_window,
+                      demo->screen->root, 0, 0, demo->m_width, demo->m_height, 0,
+                      XCB_WINDOW_CLASS_INPUT_OUTPUT, demo->screen->root_visual,
+                      value_mask, value_list);
+
+    /* Magic code that will send notification when window is destroyed */
+    xcb_intern_atom_cookie_t cookie =
+        xcb_intern_atom(demo->connection, 1, 12, "WM_PROTOCOLS");
+    xcb_intern_atom_reply_t *reply =
+        xcb_intern_atom_reply(demo->connection, cookie, 0);
+
+    xcb_intern_atom_cookie_t cookie2 =
+        xcb_intern_atom(demo->connection, 0, 16, "WM_DELETE_WINDOW");
+    demo->atom_wm_delete_window =
+        xcb_intern_atom_reply(demo->connection, cookie2, 0);
+
+    xcb_change_property(demo->connection, XCB_PROP_MODE_REPLACE, demo->xcb_window,
+                        (*reply).atom, 4, 32, 1,
+                        &(*demo->atom_wm_delete_window).atom);
+    free(reply);
+
+    xcb_map_window(demo->connection, demo->xcb_window);
+
+    // Force the x/y coordinates to 100,100 results are identical in consecutive
+    // runs
+    const uint32_t coords[] = {100, 100};
+    xcb_configure_window(demo->connection, demo->xcb_window,
+                         XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, coords);
+}
+
+
 /*
  * Return 1 (true) if all layer names specified in check_names
  * can be found in given layer properties.
@@ -1941,9 +1965,9 @@ void Demo::resize_vk() {
 VkBool32 Demo::check_layers(uint32_t check_count, const char **check_names,
                                   uint32_t layer_count,
                                   VkLayerProperties *layers) {
-    qDebug()<<__PRETTY_FUNCTION__;
-    for (uint32_t j = 0; j < layer_count; j++)
-            qDebug()<<layers[j].layerName;
+    DEBUG_ENTRY;
+//    for (uint32_t j = 0; j < layer_count; j++)
+//            qDebug()<<layers[j].layerName;
 
     for (uint32_t i = 0; i < check_count; i++) {
         VkBool32 found = 0;
@@ -1963,13 +1987,13 @@ VkBool32 Demo::check_layers(uint32_t check_count, const char **check_names,
 
 void Demo::resizeEvent(QResizeEvent *)
 {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
     resize_vk();
 }
 
 void Demo::init_vk() {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
     VkResult err;
     uint32_t instance_extension_count = 0;
@@ -2131,6 +2155,7 @@ void Demo::init_vk() {
         dbgCreateInfo.pUserData = NULL;
         dbgCreateInfo.flags =
             VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
+        // | VK_DEBUG_REPORT_INFORMATION_BIT_EXT;
         inst_info.pNext = &dbgCreateInfo;
     }
 
@@ -2280,6 +2305,7 @@ void Demo::init_vk() {
         dbgCreateInfo.pUserData = NULL;
         dbgCreateInfo.flags =
             VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
+        //| VK_DEBUG_REPORT_INFORMATION_BIT_EXT;
         err = CreateDebugReportCallback(m_inst, &dbgCreateInfo, NULL,
                                               &msg_callback);
         switch (err) {
@@ -2328,7 +2354,7 @@ void Demo::init_vk() {
 }
 
 void Demo::create_device() {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
     VkResult U_ASSERT_ONLY err;
     float queue_priorities[1] = {0.0};
@@ -2359,7 +2385,7 @@ void Demo::create_device() {
 }
 
 void Demo::init_vk_swapchain() {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
 
     VkResult U_ASSERT_ONLY err;
     uint32_t i;
@@ -2389,6 +2415,7 @@ void Demo::init_vk_swapchain() {
     createInfo.flags = 0;
     createInfo.connection = connection;
     createInfo.window = xcb_window;
+
     err = vkCreateXcbSurfaceKHR(m_inst, &createInfo, NULL, &m_surface);
 
 #endif // _WIN32

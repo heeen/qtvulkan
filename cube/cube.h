@@ -62,7 +62,7 @@ public:
     void prepare_descriptor_set();
     void prepare_framebuffers();
 
-    VkShaderModule prepare_shader_module(const void *code, size_t size);
+    VkShaderModule prepare_shader_module(const char *code, size_t size);
     VkShaderModule prepare_vs();
     VkShaderModule prepare_fs();
 
@@ -162,8 +162,8 @@ public slots:
 
 
     uint32_t m_width, m_height;
-    uint32_t width() { return m_width; }
-    uint32_t height() { return m_height; }
+    int width() { return m_width; }
+    int height() { return m_height; }
     xcb_connection_t *connection;
     xcb_screen_t *screen;
     xcb_window_t xcb_window;
