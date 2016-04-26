@@ -3,6 +3,7 @@
 
 #include <QWindow>
 #include <QMatrix4x4>
+#include <QElapsedTimer>
 #include <vulkan/vulkan.h>
 
 #define DEMO_TEXTURE_COUNT 1
@@ -28,7 +29,7 @@ struct texture_object {
     uint32_t tex_width, tex_height;
 };
 
-class Demo /*: public QWindow */{
+class Demo : public QWindow {
 public:
     Demo();
     ~Demo();
@@ -39,7 +40,7 @@ public:
                                       uint32_t layer_count,
                                       VkLayerProperties *layers);
 
-    void resizeEvent(QResizeEvent *)/* override*/; // QWindow::resizeEvent
+    void resizeEvent(QResizeEvent *) override; // QWindow::resizeEvent
     void resize_vk();
     void prepare_pipeline();
     void prepare();
@@ -69,7 +70,7 @@ public:
 public slots:
     void redraw();
 
-//private:
+private:
     VkSurfaceKHR m_surface;
     bool m_prepared;
     bool m_use_staging_buffer;
@@ -160,15 +161,8 @@ public slots:
     PFN_vkAcquireNextImageKHR fpAcquireNextImageKHR;
     PFN_vkQueuePresentKHR fpQueuePresentKHR;
 
-
-    uint32_t m_width, m_height;
-    int width() { return m_width; }
-    int height() { return m_height; }
-    xcb_connection_t *connection;
-    xcb_screen_t *screen;
-    xcb_window_t xcb_window;
-    xcb_intern_atom_reply_t *atom_wm_delete_window;
     uint32_t frameCount, curFrame;
+    QElapsedTimer m_fpsTimer;
 };
 
 

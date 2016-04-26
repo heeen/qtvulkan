@@ -33,12 +33,14 @@
 #include <cube.h>
 #include <QApplication>
 #include <QMessageBox>
-
+#include <QResizeEvent>
 
 #include <QtMath>
 #include <qpa/qplatformnativeinterface.h>
 
-static PFN_vkGetDeviceProcAddr g_gdpa = NULL;static const char *tex_files[] = {"lunarg.ppm"};
+static PFN_vkGetDeviceProcAddr g_gdpa = NULL;
+
+static const char *tex_files[] = {"lunarg.ppm"};
 
 static int validation_error = 0;
 
@@ -230,33 +232,19 @@ static void demo_run_xcb(struct Demo *demo);
 int main(int argc, char **argv) {
     setvbuf(stdout, NULL, _IONBF, 0);
     DEBUG_ENTRY;
-/*    QGuiApplication app(argc, argv);
+    QGuiApplication app(argc, argv);
     Demo demo;
-    QSurfaceFormat format;
-    format.setRedBufferSize(8);
-    format.setGreenBufferSize(8);
-    format.setBlueBufferSize(8);
-    format.setRenderableType(QSurfaceFormat::OpenGL);
-    demo.setFormat(format);
+    demo.show();
 
+    demo.resize(500,500);
+    demo.init_vk();
+    demo.init_vk_swapchain();
+    demo.prepare();
     QTimer t;
     t.setInterval(16);
     QObject::connect(&t, &QTimer::timeout, &demo, &Demo::redraw );
-    demo.resize(500,500);
-    demo.show();
-    demo.init_vk();
-    demo.init_vk_swapchain();
-    demo.prepare();
     t.start();
-    app.exec();*/
-
-    Demo demo;
-
-    demo.init_vk();
-    demo_create_xcb_window(&demo);
-    demo.init_vk_swapchain();
-    demo.prepare();
-    demo_run_xcb(&demo);
+    app.exec();
 
     return validation_error;
 }
@@ -324,29 +312,9 @@ Demo::Demo() :
                        1.0f, 0.1f, 100.0f);
     m_view_matrix.lookAt(eye, origin, up);
     m_model_matrix = QMatrix();
-    m_width = 500;
-    m_height = 500;
     frameCount = INT32_MAX;
     curFrame = 0;
-
-    const xcb_setup_t *setup;
-    xcb_screen_iterator_t iter;
-    int scr;
-
-    connection = xcb_connect(NULL, &scr);
-    if (connection == NULL) {
-        printf("Cannot find a compatible Vulkan installable client driver "
-               "(ICD).\nExiting ...\n");
-        fflush(stdout);
-        exit(1);
-    }
-
-    setup = xcb_get_setup(connection);
-    iter = xcb_setup_roots_iterator(setup);
-    while (scr-- > 0)
-        xcb_screen_next(&iter);
-
-    screen = iter.data;
+    m_fpsTimer.start();
 }
 
 Demo::~Demo()
@@ -587,7 +555,7 @@ void Demo::update_data_buffer() {
     VP = m_projection_matrix * m_view_matrix;
 
     // Rotate 22.5 degrees around the Y axis
-    m_model_matrix.rotate(0.01f, QVector3D(0.0f, 1.0f, 0.0f));
+    m_model_matrix.rotate(0.1f, QVector3D(0.0f, 1.0f, 0.0f));
 
     MVP = VP * m_model_matrix;
 
@@ -727,9 +695,7 @@ void Demo::prepare_buffers() {
     } else {
         // If the surface size is defined, the swap chain size must match
         swapchainExtent = surfCapabilities.currentExtent;
-//        resize(surfCapabilities.currentExtent.width, surfCapabilities.currentExtent.height); // FIXME why
-        m_width = surfCapabilities.currentExtent.width;
-        m_height = surfCapabilities.currentExtent.height;
+        resize(surfCapabilities.currentExtent.width, surfCapabilities.currentExtent.height); // FIXME why
     }
 
     // If mailbox mode is available, use it, as is the lowest-latency non-
@@ -1665,48 +1631,55 @@ void Demo::prepare_framebuffers() {
 
 void Demo::redraw()
 {
-    qDebug()<<"repaint";
+    static uint32_t f = 0;
+    f++;
+    if(f == 100) {
+        qDebug()<<(float)f / (float)m_fpsTimer.elapsed() * 1000.0f;
+        f=0;
+        m_fpsTimer.restart();
+
+    }
+
+    // Wait for work to finish before updating MVP.
     vkDeviceWaitIdle(m_device);
     update_data_buffer();
     draw();
-    // Wait for work to finish before updating MVP.
 }
 
 void Demo::prepare() {
     DEBUG_ENTRY;
 
-    Demo* demo = this; //FIXME
     VkResult U_ASSERT_ONLY err;
 
     VkCommandPoolCreateInfo cmd_pool_info = {};
     cmd_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     cmd_pool_info.pNext = NULL;
-    cmd_pool_info.queueFamilyIndex = demo->m_graphics_queue_node_index;
+    cmd_pool_info.queueFamilyIndex = m_graphics_queue_node_index;
     cmd_pool_info.flags = 0;
 
-    err = vkCreateCommandPool(demo->m_device, &cmd_pool_info, NULL,
-                              &demo->m_cmd_pool);
+    err = vkCreateCommandPool(m_device, &cmd_pool_info, NULL,
+                              &m_cmd_pool);
     assert(!err);
 
     VkCommandBufferAllocateInfo cmd = {};
     cmd.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     cmd.pNext = NULL;
-    cmd.commandPool = demo->m_cmd_pool;
+    cmd.commandPool = m_cmd_pool;
     cmd.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     cmd.commandBufferCount = 1;
 
-    demo->prepare_buffers();
-    demo->prepare_depth();
-    demo->prepare_textures();
-    demo->prepare_cube_data_buffer();
+    prepare_buffers();
+    prepare_depth();
+    prepare_textures();
+    prepare_cube_data_buffer();
 
-    demo->prepare_descriptor_layout();
-    demo->prepare_render_pass();
+    prepare_descriptor_layout();
+    prepare_render_pass();
     prepare_pipeline();
 
-    for (uint32_t i = 0; i < demo->m_swapchainImageCount; i++) {
+    for (uint32_t i = 0; i < m_swapchainImageCount; i++) {
         err =
-            vkAllocateCommandBuffers(demo->m_device, &cmd, &demo->m_buffers[i].cmd);
+            vkAllocateCommandBuffers(m_device, &cmd, &m_buffers[i].cmd);
         assert(!err);
     }
 
@@ -1715,9 +1688,9 @@ void Demo::prepare() {
 
     prepare_framebuffers();
 
-    for (uint32_t i = 0; i < demo->m_swapchainImageCount; i++) {
-        demo->m_current_buffer = i;
-        demo->draw_build_cmd(demo->m_buffers[i].cmd);
+    for (uint32_t i = 0; i < m_swapchainImageCount; i++) {
+        m_current_buffer = i;
+        draw_build_cmd(m_buffers[i].cmd);
     }
 
     /*
@@ -1726,8 +1699,8 @@ void Demo::prepare() {
      */
     flush_init_cmd();
 
-    demo->m_current_buffer = 0;
-    demo->m_prepared = true;
+    m_current_buffer = 0;
+    m_prepared = true;
 }
 
 void Demo::cleanup() {
@@ -1837,7 +1810,7 @@ void Demo::resize_vk() {
     prepare();
 }
 
-
+#if 0
 static void demo_handle_xcb_event(struct Demo *demo,
                               const xcb_generic_event_t *event) {
     DEBUG_ENTRY;
@@ -1957,6 +1930,7 @@ static void demo_create_xcb_window(struct Demo *demo) {
                          XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, coords);
 }
 
+#endif
 
 /*
  * Return 1 (true) if all layer names specified in check_names
@@ -1985,11 +1959,14 @@ VkBool32 Demo::check_layers(uint32_t check_count, const char **check_names,
     return 1;
 }
 
-void Demo::resizeEvent(QResizeEvent *)
+void Demo::resizeEvent(QResizeEvent *e)
 {
+    qDebug()<<e;
     DEBUG_ENTRY;
 
     resize_vk();
+    e->accept(); //FIXME?
+    QWindow::resizeEvent(e);
 }
 
 void Demo::init_vk() {
@@ -2403,11 +2380,13 @@ void Demo::init_vk_swapchain() {
         vkCreateWin32SurfaceKHR(inst, &createInfo, NULL, &surface);
 #else
 
-//    QPlatformNativeInterface *native =  QGuiApplication::platformNativeInterface();
-//    Q_ASSERT(native);
-//    xcb_connection_t* connection = static_cast<xcb_connection_t *>(native->nativeResourceForWindow("connection", this));
+    QPlatformNativeInterface *native =  QGuiApplication::platformNativeInterface();
+    Q_ASSERT(native);
+    xcb_connection_t* connection = static_cast<xcb_connection_t *>(native->nativeResourceForWindow("connection", this));
     Q_ASSERT(connection);
-//    xcb_window_t window = static_cast<xcb_window_t>(winId());
+    xcb_window_t xcb_window = static_cast<xcb_window_t>(winId());
+    Q_ASSERT(xcb_window);
+
     qDebug()<<"connection and winid:"<<connection<<xcb_window;
     VkXcbSurfaceCreateInfoKHR createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
