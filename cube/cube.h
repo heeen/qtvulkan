@@ -165,7 +165,6 @@ private:
     QElapsedTimer m_fpsTimer;
 };
 
-
 #define GET_INSTANCE_PROC_ADDR(inst, entrypoint)                               \
     {                                                                          \
         fp##entrypoint =                                                 \

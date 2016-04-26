@@ -145,48 +145,25 @@ dbgFunc(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
         uint64_t srcObject, size_t location, int32_t msgCode,
         const char *pLayerPrefix, const char *pMsg, void *pUserData) {
 
-    printf("%s\n", pMsg);
-    fflush(stdout);
-    return false;
-    char *message = (char *)malloc(strlen(pMsg) + 100);
-
     Q_UNUSED(objType)
     Q_UNUSED(srcObject)
     Q_UNUSED(location)
     Q_UNUSED(pUserData)
 
-    assert(message);
-
+    QDebug q(qDebug());
 
     if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
-        sprintf(message, "ERROR: [%s] Code %d : %s", pLayerPrefix, msgCode,
-                pMsg);
+        q<<"ERROR";
         validation_error = 1;
     } else if (msgFlags & VK_DEBUG_REPORT_WARNING_BIT_EXT) {
-        // We know that we're submitting queues without fences, ignore this
-        // warning
-        if (strstr(pMsg,
-                   "vkQueueSubmit parameter, VkFence fence, is null pointer")) {
-            return false;
-        }
-        sprintf(message, "WARNING: [%s] Code %d : %s", pLayerPrefix, msgCode,
-                pMsg);
+        q<<"WARNING";
         validation_error = 1;
     } else {
         validation_error = 1;
         return false;
     }
 
-    qFatal("%s", message);
-
-/*    QMessageBox msgBox;
-    msgBox.setText("Name");
-    msgBox.setInformativeText(message);
-    msgBox.setStandardButtons(QMessageBox::Ok);
-    int ret = msgBox.exec();*/
-
-    free(message);
-
+    q<<": ["<<pLayerPrefix<<"] Code"<<msgCode<<pMsg;
     /*
      * false indicates that layer should not bail-out of an
      * API call that had validation failures. This may mean that the
@@ -900,53 +877,37 @@ void Demo::prepare_depth() {
     assert(!err);
 }
 
-/* Load a ppm file into memory */
-bool loadTexture(const char *filename, uint8_t *rgba_data,
-                 VkSubresourceLayout *layout, uint32_t *width, uint32_t *height) {
-    FILE *fPtr = fopen(filename, "rb");
-    char header[256], *cPtr, *tmp;
-
-    if (!fPtr)
-        return false;
-
-    cPtr = fgets(header, 256, fPtr); // P6
-    if (cPtr == NULL || strncmp(header, "P6\n", 3)) {
-        fclose(fPtr);
-        return false;
+VkFormat QtFormat2vkFormat(QImage::Format f) {
+    switch (f) {
+/*
+    case QImage::Format_Mono: return VK_FORMAT_UNDEFINED; //FIXME
+    case QImage::Format_MonoLSB: return VK_FORMAT_UNDEFINED;
+    case QImage::Format_Indexed8: return VK_FORMAT_UNDEFINED;
+*/
+    case QImage::Format_RGB32: return VK_FORMAT_R8G8B8A8_UNORM;
+    case QImage::Format_ARGB32: return VK_FORMAT_R8G8B8A8_UNORM;
+/*
+    case QImage::Format_ARGB32_Premultiplied: return VK_FORMAT_;
+    case QImage::Format_RGB16: return VK_FORMAT_;
+    case QImage::Format_ARGB8565_Premultiplied: return VK_FORMAT_;
+    case QImage::Format_RGB666: return VK_FORMAT_;
+    case QImage::Format_ARGB6666_Premultiplied: return VK_FORMAT_;
+    case QImage::Format_RGB555: return VK_FORMAT_;
+    case QImage::Format_ARGB8555_Premultiplied: return VK_FORMAT_;
+    case QImage::Format_RGB888: return VK_FORMAT_;
+    case QImage::Format_RGB444: return VK_FORMAT_;
+    case QImage::Format_ARGB4444_Premultiplied: return VK_FORMAT_;
+    case QImage::Format_RGBX8888: return VK_FORMAT_;
+    case QImage::Format_RGBA8888: return VK_FORMAT_;
+    case QImage::Format_RGBA8888_Premultiplied: return VK_FORMAT_;
+    case QImage::Format_BGR30: return VK_FORMAT_;
+    case QImage::Format_A2BGR30_Premultiplied: return VK_FORMAT_;
+    case QImage::Format_RGB30: return VK_FORMAT_;
+    case QImage::Format_A2RGB30_Premultiplied: return VK_FORMAT_;
+    case QImage::Format_Alpha8: return VK_FORMAT_;
+    case QImage::Format_Grayscale8: return VK_FORMAT_;
+*/
     }
-
-    do {
-        cPtr = fgets(header, 256, fPtr);
-        if (cPtr == NULL) {
-            fclose(fPtr);
-            return false;
-        }
-    } while (!strncmp(header, "#", 1));
-
-    sscanf(header, "%u %u", height, width);
-    if (rgba_data == NULL) {
-        fclose(fPtr);
-        return true;
-    }
-    tmp = fgets(header, 256, fPtr); // Format
-    (void)tmp;
-    if (cPtr == NULL || strncmp(header, "255\n", 3)) {
-        fclose(fPtr);
-        return false;
-    }
-
-    for (uint32_t y = 0; y < *height; y++) {
-        uint8_t *rowPtr = rgba_data;
-        for (uint32_t x = 0; x < *width; x++) {
-            size_t s = fread(rowPtr, 3, 1, fPtr);
-            (void)s;
-            rowPtr[3] = 255; /* Alpha of 1 */
-            rowPtr += 4;
-        }
-        rgba_data += layout->rowPitch;
-    }
-    fclose(fPtr);
-    return true;
 }
 
 void Demo::prepare_texture_image(const char *filename,
@@ -956,28 +917,25 @@ void Demo::prepare_texture_image(const char *filename,
                                        VkFlags required_props) {
     DEBUG_ENTRY;
 
-    const VkFormat tex_format = VK_FORMAT_R8G8B8A8_UNORM;
-    uint32_t tex_width;
-    uint32_t tex_height;
     VkResult U_ASSERT_ONLY err;
-    bool U_ASSERT_ONLY pass;
 
-    if (!loadTexture(filename, NULL, NULL, &tex_width, &tex_height)) {
-        printf("Failed to load textures %s\n", filename);
-        fflush(stdout);
-        exit(1);
+    QImage img(filename);
+    const VkFormat tex_format = QtFormat2vkFormat(img.format());
+
+    if (img.isNull()) {
+        qFatal("Failed to load textures %s\n", filename);
     }
 
-    tex_obj->tex_width = tex_width;
-    tex_obj->tex_height = tex_height;
+    tex_obj->tex_width = img.width();
+    tex_obj->tex_height = img.height();
 
     VkImageCreateInfo image_create_info = {};
     image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     image_create_info.pNext = NULL;
     image_create_info.imageType = VK_IMAGE_TYPE_2D;
     image_create_info.format = tex_format;
-    image_create_info.extent.width = tex_width;
-    image_create_info.extent.height = tex_height;
+    image_create_info.extent.width = img.width();
+    image_create_info.extent.height = img.height();
     image_create_info.extent.depth = 1;
     image_create_info.mipLevels = 1;
     image_create_info.arrayLayers = 1;
@@ -989,8 +947,7 @@ void Demo::prepare_texture_image(const char *filename,
 
     VkMemoryRequirements mem_reqs;
 
-    err =
-        vkCreateImage(m_device, &image_create_info, NULL, &tex_obj->image);
+    err = vkCreateImage(m_device, &image_create_info, NULL, &tex_obj->image);
     assert(!err);
 
     vkGetImageMemoryRequirements(m_device, tex_obj->image, &mem_reqs);
@@ -1000,7 +957,7 @@ void Demo::prepare_texture_image(const char *filename,
     tex_obj->mem_alloc.allocationSize = mem_reqs.size;
     tex_obj->mem_alloc.memoryTypeIndex = 0;
 
-    pass = memory_type_from_properties(mem_reqs.memoryTypeBits,
+    bool U_ASSERT_ONLY pass = memory_type_from_properties(mem_reqs.memoryTypeBits,
                                        required_props,
                                        &tex_obj->mem_alloc.memoryTypeIndex);
     assert(pass);
@@ -1030,9 +987,7 @@ void Demo::prepare_texture_image(const char *filename,
                           tex_obj->mem_alloc.allocationSize, 0, &data);
         assert(!err);
 
-        if (!loadTexture(filename, (uint8_t*)data, &layout, &tex_width, &tex_height)) {
-            fprintf(stderr, "Error loading texture: %s\n", filename);
-        }
+        memcpy(data, img.bits(), img.byteCount() ); // FIXME - in place decoding wanted
 
         vkUnmapMemory(m_device, tex_obj->mem);
     }
@@ -1056,7 +1011,7 @@ void Demo::destroy_texture_image(struct texture_object *tex_objs) {
 void Demo::prepare_textures() {
     DEBUG_ENTRY;
 
-    const VkFormat tex_format = VK_FORMAT_R8G8B8A8_UNORM;
+    const VkFormat tex_format = VK_FORMAT_R8G8B8A8_UNORM; // FIXME get from qimage format?
     VkFormatProperties props;
     uint32_t i;
 
@@ -1147,18 +1102,19 @@ void Demo::prepare_textures() {
             sampler.unnormalizedCoordinates = VK_FALSE;
 
         VkImageViewCreateInfo view = {};
-            view.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-            view.pNext = NULL;
-            view.image = VK_NULL_HANDLE;
-            view.viewType = VK_IMAGE_VIEW_TYPE_2D;
-            view.format = tex_format;
-            view.components =
-                {
-                 VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G,
-                 VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A,
-                };
-            view.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-            view.flags = 0;
+        view.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        view.pNext = NULL;
+        view.image = VK_NULL_HANDLE;
+        view.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        view.format = tex_format;
+        // attention: BGRA since that is what QImageReader gives us
+        // does it depoend on the endian-ness of the platform?
+        view.components =  {
+            VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_G,
+            VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_A,
+        };
+        view.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+        view.flags = 0;
 
         /* create sampler */
         err = vkCreateSampler(m_device, &sampler, NULL,
@@ -1753,7 +1709,6 @@ void Demo::cleanup() {
     }
     vkDestroySurfaceKHR(m_inst, m_surface, NULL);
     vkDestroyInstance(m_inst, NULL);
-    //xcb cleanup was here
 }
 
 void Demo::resize_vk() {
@@ -1810,128 +1765,6 @@ void Demo::resize_vk() {
     prepare();
 }
 
-#if 0
-static void demo_handle_xcb_event(struct Demo *demo,
-                              const xcb_generic_event_t *event) {
-    DEBUG_ENTRY;
-    uint8_t event_code = event->response_type & 0x7f;
-    switch (event_code) {
-    case XCB_EXPOSE:
-        // TODO: Resize window
-        break;
-    case XCB_CLIENT_MESSAGE:
-        if ((*(xcb_client_message_event_t *)event).data.data32[0] ==
-            (*demo->atom_wm_delete_window).atom) {
-            demo->m_quit = true;
-        }
-        break;
-    case XCB_KEY_RELEASE: {
-        const xcb_key_release_event_t *key =
-            (const xcb_key_release_event_t *)event;
-
-        switch (key->detail) {
-        case 0x9: // Escape
-            demo->m_quit = true;
-            break;
-        case 0x71: // left arrow key
-            demo->m_spin_angle += demo->m_spin_increment;
-            break;
-        case 0x72: // right arrow key
-            demo->m_spin_angle -= demo->m_spin_increment;
-            break;
-        case 0x41:
-            demo->m_pause = !demo->m_pause;
-            break;
-        }
-    } break;
-    case XCB_CONFIGURE_NOTIFY: {
-        const xcb_configure_notify_event_t *cfg =
-            (const xcb_configure_notify_event_t *)event;
-        if ((demo->m_width != cfg->width) || (demo->m_height != cfg->height)) {
-            demo->m_width = cfg->width;
-            demo->m_height = cfg->height;
-            demo->resize_vk();
-        }
-    } break;
-    default:
-        break;
-    }
-}
-
-static void demo_run_xcb(struct Demo *demo) {
-    DEBUG_ENTRY;
-    xcb_flush(demo->connection);
-
-    while (!demo->m_quit) {
-        xcb_generic_event_t *event;
-
-        if (demo->m_pause) {
-            event = xcb_wait_for_event(demo->connection);
-        } else {
-            event = xcb_poll_for_event(demo->connection);
-        }
-        if (event) {
-            demo_handle_xcb_event(demo, event);
-            free(event);
-        }
-
-        // Wait for work to finish before updating MVP.
-        vkDeviceWaitIdle(demo->m_device);
-        demo->update_data_buffer();
-
-        demo->draw();
-
-        // Wait for work to finish before updating MVP.
-        vkDeviceWaitIdle(demo->m_device);
-        demo->curFrame++;
-        if (demo->frameCount != INT32_MAX && demo->curFrame == demo->frameCount)
-            demo->m_quit = true;
-    }
-}
-
-static void demo_create_xcb_window(struct Demo *demo) {
-    DEBUG_ENTRY;
-    uint32_t value_mask, value_list[32];
-
-    demo->xcb_window = xcb_generate_id(demo->connection);
-
-    value_mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
-    value_list[0] = demo->screen->black_pixel;
-    value_list[1] = XCB_EVENT_MASK_KEY_RELEASE | XCB_EVENT_MASK_EXPOSURE |
-                    XCB_EVENT_MASK_STRUCTURE_NOTIFY;
-
-    xcb_create_window(demo->connection, XCB_COPY_FROM_PARENT, demo->xcb_window,
-                      demo->screen->root, 0, 0, demo->m_width, demo->m_height, 0,
-                      XCB_WINDOW_CLASS_INPUT_OUTPUT, demo->screen->root_visual,
-                      value_mask, value_list);
-
-    /* Magic code that will send notification when window is destroyed */
-    xcb_intern_atom_cookie_t cookie =
-        xcb_intern_atom(demo->connection, 1, 12, "WM_PROTOCOLS");
-    xcb_intern_atom_reply_t *reply =
-        xcb_intern_atom_reply(demo->connection, cookie, 0);
-
-    xcb_intern_atom_cookie_t cookie2 =
-        xcb_intern_atom(demo->connection, 0, 16, "WM_DELETE_WINDOW");
-    demo->atom_wm_delete_window =
-        xcb_intern_atom_reply(demo->connection, cookie2, 0);
-
-    xcb_change_property(demo->connection, XCB_PROP_MODE_REPLACE, demo->xcb_window,
-                        (*reply).atom, 4, 32, 1,
-                        &(*demo->atom_wm_delete_window).atom);
-    free(reply);
-
-    xcb_map_window(demo->connection, demo->xcb_window);
-
-    // Force the x/y coordinates to 100,100 results are identical in consecutive
-    // runs
-    const uint32_t coords[] = {100, 100};
-    xcb_configure_window(demo->connection, demo->xcb_window,
-                         XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, coords);
-}
-
-#endif
-
 /*
  * Return 1 (true) if all layer names specified in check_names
  * can be found in given layer properties.
@@ -1940,8 +1773,6 @@ VkBool32 Demo::check_layers(uint32_t check_count, const char **check_names,
                                   uint32_t layer_count,
                                   VkLayerProperties *layers) {
     DEBUG_ENTRY;
-//    for (uint32_t j = 0; j < layer_count; j++)
-//            qDebug()<<layers[j].layerName;
 
     for (uint32_t i = 0; i < check_count; i++) {
         VkBool32 found = 0;
@@ -2470,7 +2301,6 @@ void Demo::init_vk_swapchain() {
     // Get the list of VkFormat's that are supported:
     uint32_t formatCount;
     err = fpGetPhysicalDeviceSurfaceFormatsKHR(m_gpu, m_surface, &formatCount, NULL);
-    qDebug()<<"format count"<<formatCount;
     assert(formatCount);
     assert(!err);
     VkSurfaceFormatKHR *surfFormats =
