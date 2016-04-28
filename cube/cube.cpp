@@ -44,13 +44,6 @@ static const char *tex_files[] = {"lunarg.ppm"};
 
 static int validation_error = 0;
 
-struct vktexcube_vs_uniform {
-    // Must start with MVP
-    float mvp[4][4];
-    float position[12 * 3][4];
-    float attr[12 * 3][4];
-};
-
 static const float g_vertex_buffer_data[] = {
     -1.0f,-1.0f,-1.0f,  // -X side
     -1.0f,-1.0f, 1.0f,
@@ -138,7 +131,6 @@ static const float g_uv_buffer_data[] = {
     1.0f, 0.0f,
     1.0f, 1.0f,
 };
-// clang-format on
 
 VKAPI_ATTR VkBool32 VKAPI_CALL
 dbgFunc(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
@@ -247,47 +239,7 @@ int main(int argc, char **argv) {
     return validation_error;
 }
 
-Demo::Demo() :
-    m_surface(0),
-    m_prepared(false),
-    m_use_staging_buffer(false),
-    m_inst(0),
-    m_gpu(0),
-    m_device(0),
-    m_queue(0),
-    m_graphics_queue_node_index(0),
-    m_gpu_props({}),
-    m_memory_properties({}),
-    m_swapchain(0),
-    m_buffers(0),
-    m_cmd_pool(0),
-    m_depth({}),
-    m_uniform_data({}),
-    m_cmd(0),
-    m_pipeline_layout(0),
-    m_desc_layout(0),
-    m_pipelineCache(0),
-    m_render_pass(0),
-    m_pipeline(0),
-    m_spin_angle(0.01f),
-    m_spin_increment(0.01f),
-    m_pause(false),
-    m_desc_pool(0),
-    m_desc_set(0),
-    m_quit(false),
-    m_curFrame(0),
-    m_frameCount(0),
-    m_validate(true),
-    m_use_break(false),
-    fpGetPhysicalDeviceSurfaceSupportKHR(0),
-    fpGetPhysicalDeviceSurfaceCapabilitiesKHR(0),
-    fpGetPhysicalDeviceSurfaceFormatsKHR(0),
-    fpGetPhysicalDeviceSurfacePresentModesKHR(0),
-    fpCreateSwapchainKHR(0),
-    fpDestroySwapchainKHR(0),
-    fpGetSwapchainImagesKHR(0),
-    fpAcquireNextImageKHR(0),
-    fpQueuePresentKHR(0)
+Demo::Demo()
 {
     DEBUG_ENTRY;
 
@@ -295,12 +247,9 @@ Demo::Demo() :
     QVector3D origin(0, 0, 0);
     QVector3D up(0.0f, 1.0f, 0.0);
 
-    m_projection_matrix.perspective(45.0f,
-                       1.0f, 0.1f, 100.0f);
+    m_projection_matrix.perspective(45.0f, 1.0f, 0.1f, 100.0f);
     m_view_matrix.lookAt(eye, origin, up);
     m_model_matrix = QMatrix();
-    frameCount = INT32_MAX;
-    curFrame = 0;
     m_fpsTimer.start();
 }
 

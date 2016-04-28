@@ -31,6 +31,13 @@ struct texture_object {
     uint32_t tex_width, tex_height;
 };
 
+struct vktexcube_vs_uniform {
+    // Must start with MVP
+    float mvp[4][4];
+    float position[12 * 3][4];
+    float attr[12 * 3][4];
+};
+
 typedef QVector<const char*> QVulkanNames;
 
 class Demo : public QWindow {
@@ -69,30 +76,30 @@ public slots:
     void redraw();
 
 private:
-    VkSurfaceKHR m_surface;
-    bool m_prepared;
-    bool m_use_staging_buffer;
+    VkSurfaceKHR m_surface      {0};
+    bool m_prepared             { false };
+    bool m_use_staging_buffer   { false };
 
-    VkInstance m_inst;
-    VkPhysicalDevice m_gpu;
-    VkDevice m_device;
-    VkQueue m_queue;
-    uint32_t m_graphics_queue_node_index;
-    VkPhysicalDeviceProperties m_gpu_props;
-    QVector<VkQueueFamilyProperties> m_queueProps;
-    VkPhysicalDeviceMemoryProperties m_memory_properties;
+    VkInstance m_inst       {0};
+    VkPhysicalDevice m_gpu  {0};
+    VkDevice m_device       {0};
+    VkQueue m_queue         {0};
+    uint32_t m_graphics_queue_node_index                    {0};
+    VkPhysicalDeviceProperties m_gpu_props                  {};
+    QVector<VkQueueFamilyProperties> m_queueProps           {0};
+    VkPhysicalDeviceMemoryProperties m_memory_properties    {};
 
     QVector<const char*> m_extensionNames;
     QVector<const char*> m_deviceValidationLayers;
 
-    VkFormat m_format;
-    VkColorSpaceKHR m_color_space;
+    VkFormat m_format               {};
+    VkColorSpaceKHR m_color_space   {};
 
-    VkSwapchainKHR m_swapchain;
+    VkSwapchainKHR m_swapchain {0};
     QVector<SwapchainBuffers> m_buffers;
     QVector<VkFramebuffer> m_framebuffers;  //FIXME these seem to have the same size should they be in the same vector?
 
-    VkCommandPool m_cmd_pool;
+    VkCommandPool m_cmd_pool  {0};
 
     struct {
         VkFormat format;
@@ -100,59 +107,59 @@ private:
         VkMemoryAllocateInfo mem_alloc;
         VkDeviceMemory mem;
         VkImageView view;
-    } m_depth;
+    } m_depth {};
 
-    struct texture_object m_textures[DEMO_TEXTURE_COUNT];
+    struct texture_object m_textures[DEMO_TEXTURE_COUNT] {};
 
     struct {
         VkBuffer buf;
         VkMemoryAllocateInfo mem_alloc;
         VkDeviceMemory mem;
         VkDescriptorBufferInfo buffer_info;
-    } m_uniform_data;
+    } m_uniform_data  {};
 
-    VkCommandBuffer m_cmd; // Buffer for initialization commands
-    VkPipelineLayout m_pipeline_layout;
-    VkDescriptorSetLayout m_desc_layout;
-    VkPipelineCache m_pipelineCache;
-    VkRenderPass m_render_pass;
-    VkPipeline m_pipeline;
+     // Buffer for initialization commands
+    VkCommandBuffer m_cmd               {0};
+    VkPipelineLayout m_pipeline_layout  {0};
+    VkDescriptorSetLayout m_desc_layout {0};
+    VkPipelineCache m_pipelineCache     {0};
+    VkRenderPass m_render_pass          {0};
+    VkPipeline m_pipeline               {0};
+    uint32_t m_current_buffer           {0};
 
     QMatrix4x4 m_projection_matrix;
     QMatrix4x4 m_view_matrix;
     QMatrix4x4 m_model_matrix;
 
-    float m_spin_angle;
-    float m_spin_increment;
-    bool m_pause;
+    float m_spin_angle  {0.1f};
+    float m_spin_increment  {0.1f};
+    bool m_pause {false};
 
-    VkDescriptorPool m_desc_pool;
-    VkDescriptorSet m_desc_set;
+    VkDescriptorPool m_desc_pool  {0};
+    VkDescriptorSet m_desc_set  {0};
 
 
-    bool m_quit;
-    int32_t m_curFrame;
-    int32_t m_frameCount;
-    bool m_validate;
-    bool m_use_break;
-    PFN_vkCreateDebugReportCallbackEXT CreateDebugReportCallback;
-    PFN_vkDestroyDebugReportCallbackEXT DestroyDebugReportCallback;
-    VkDebugReportCallbackEXT msg_callback;
-    PFN_vkDebugReportMessageEXT DebugReportMessage;
+    bool m_quit { false };
+    int32_t m_curFrame  {0};
+    int32_t m_frameCount  {INT32_MAX};
+    bool m_validate { true };
+    bool m_use_break { false };
+    PFN_vkCreateDebugReportCallbackEXT CreateDebugReportCallback  {0};
+    PFN_vkDestroyDebugReportCallbackEXT DestroyDebugReportCallback  {0};
+    VkDebugReportCallbackEXT msg_callback           {0};
+    PFN_vkDebugReportMessageEXT DebugReportMessage  {0};
 
-    uint32_t m_current_buffer;
 
-    PFN_vkGetPhysicalDeviceSurfaceSupportKHR fpGetPhysicalDeviceSurfaceSupportKHR;
-    PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR fpGetPhysicalDeviceSurfaceCapabilitiesKHR;
-    PFN_vkGetPhysicalDeviceSurfaceFormatsKHR fpGetPhysicalDeviceSurfaceFormatsKHR;
-    PFN_vkGetPhysicalDeviceSurfacePresentModesKHR fpGetPhysicalDeviceSurfacePresentModesKHR;
-    PFN_vkCreateSwapchainKHR fpCreateSwapchainKHR;
-    PFN_vkDestroySwapchainKHR fpDestroySwapchainKHR;
-    PFN_vkGetSwapchainImagesKHR fpGetSwapchainImagesKHR;
-    PFN_vkAcquireNextImageKHR fpAcquireNextImageKHR;
-    PFN_vkQueuePresentKHR fpQueuePresentKHR;
+    PFN_vkGetPhysicalDeviceSurfaceSupportKHR fpGetPhysicalDeviceSurfaceSupportKHR           {0};
+    PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR fpGetPhysicalDeviceSurfaceCapabilitiesKHR {0};
+    PFN_vkGetPhysicalDeviceSurfaceFormatsKHR fpGetPhysicalDeviceSurfaceFormatsKHR           {0};
+    PFN_vkGetPhysicalDeviceSurfacePresentModesKHR fpGetPhysicalDeviceSurfacePresentModesKHR {0};
+    PFN_vkCreateSwapchainKHR fpCreateSwapchainKHR       {0};
+    PFN_vkDestroySwapchainKHR fpDestroySwapchainKHR     {0};
+    PFN_vkGetSwapchainImagesKHR fpGetSwapchainImagesKHR {0};
+    PFN_vkAcquireNextImageKHR fpAcquireNextImageKHR     {0};
+    PFN_vkQueuePresentKHR fpQueuePresentKHR             {0};
 
-    uint32_t frameCount, curFrame;
     QElapsedTimer m_fpsTimer;
 };
 
