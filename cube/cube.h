@@ -4,6 +4,8 @@
 #include <QWindow>
 #include <QMatrix4x4>
 #include <QElapsedTimer>
+#include <QVector>
+
 #include <vulkan/vulkan.h>
 
 #define DEMO_TEXTURE_COUNT 1
@@ -29,6 +31,8 @@ struct texture_object {
     uint32_t tex_width, tex_height;
 };
 
+typedef QVector<const char*> QVulkanNames;
+
 class Demo : public QWindow {
 public:
     Demo();
@@ -36,9 +40,7 @@ public:
     void init_vk();
     void init_vk_swapchain();
     void create_device();
-    VkBool32 check_layers(uint32_t check_count, const char **check_names,
-                                      uint32_t layer_count,
-                                      VkLayerProperties *layers);
+    bool containsAllLayers(const QVector<VkLayerProperties> haystack, const QVulkanNames needles);
 
     void resizeEvent(QResizeEvent *) override; // QWindow::resizeEvent
     void resize_vk();
@@ -84,10 +86,8 @@ private:
     VkQueueFamilyProperties *m_queue_props;
     VkPhysicalDeviceMemoryProperties m_memory_properties;
 
-    uint32_t m_enabled_extension_count;
-    uint32_t m_enabled_layer_count;
-    const char *m_extension_names[64];
-    const char *m_device_validation_layers[64];
+    QVector<const char*> m_extensionNames;
+    QVector<const char*> m_deviceValidationLayers;
 
     VkFormat m_format;
     VkColorSpaceKHR m_color_space;
@@ -199,6 +199,26 @@ private:
 
 #define ERR_EXIT(err_msg, err_class) qFatal(err_msg)
 
+QStringList layerNames(QVector<VkLayerProperties> layers) {
+    QStringList names;
+    foreach(const auto& l, layers) names << l.layerName;
+    return names;
+}
+
+template<typename VKTYPE, typename VKFUNC>
+QVector<VKTYPE> getVk(VKFUNC getter) {
+    VkResult err;
+    QVector<VKTYPE> ret;
+    uint32_t count;
+    err = getter(&count, nullptr);
+    Q_ASSERT(!err);
+    if (count > 0) {
+        ret.resize(count);
+        err = getter(&count, ret.data());
+        Q_ASSERT(!err);
+    }
+    return ret;
+}
 
 
 

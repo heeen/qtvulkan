@@ -259,12 +259,6 @@ Demo::Demo() :
     m_gpu_props({}),
     m_queue_props(0),
     m_memory_properties({}),
-    m_enabled_extension_count(0),
-    m_enabled_layer_count(0),
-//    m_extension_names({}),
-//    m_device_validation_layers({}),
-//    m_format({}),
-//    m_color_space({}),
     m_swapchainImageCount(0),
     m_swapchain(0),
     m_buffers(0),
@@ -927,6 +921,7 @@ VkFormat QtFormat2vkFormat(QImage::Format f) {
     case QImage::Format_Alpha8: return VK_FORMAT_;
     case QImage::Format_Grayscale8: return VK_FORMAT_;
 */
+    default: return VK_FORMAT_UNDEFINED;
     }
 }
 
@@ -1789,25 +1784,22 @@ void Demo::resize_vk() {
  * Return 1 (true) if all layer names specified in check_names
  * can be found in given layer properties.
  */
-VkBool32 Demo::check_layers(uint32_t check_count, const char **check_names,
-                                  uint32_t layer_count,
-                                  VkLayerProperties *layers) {
+bool Demo::containsAllLayers(const QVector<VkLayerProperties> haystack, const QVulkanNames needles) {
     DEBUG_ENTRY;
-
-    for (uint32_t i = 0; i < check_count; i++) {
-        VkBool32 found = 0;
-        for (uint32_t j = 0; j < layer_count; j++) {
-            if (!strcmp(check_names[i], layers[j].layerName)) {
-                found = 1;
+    bool found;
+    foreach(auto needle, needles) {
+        foreach(auto candidate, haystack) {
+            if(strcmp(candidate.layerName , needle) == 0) {
+                found = true;
                 break;
             }
         }
-        if (!found) {
-            fprintf(stderr, "Cannot find layer: %s\n", check_names[i]);
-            return 0;
+        if(!found) {
+            qDebug()<<"Could not find layer"<<needle;
+            return false;
         }
     }
-    return 1;
+    return true;
 }
 
 void Demo::resizeEvent(QResizeEvent *e)
@@ -1822,116 +1814,68 @@ void Demo::resizeEvent(QResizeEvent *e)
 
 void Demo::init_vk() {
     DEBUG_ENTRY;
-
-    VkResult err;
-    uint32_t instance_extension_count = 0;
-    uint32_t instance_layer_count = 0;
-    uint32_t device_validation_layer_count = 0;
-    const char **instance_validation_layers = NULL;
-    m_enabled_extension_count = 0;
-    m_enabled_layer_count = 0;
-
-    const char *instance_validation_layers_alt1[] = {
+    QVector<const char *> instanceValidationLayers;
+    const QVector<const char *> standardValidation = {
         "VK_LAYER_LUNARG_standard_validation"
     };
 
-    const char *instance_validation_layers_alt2[] = {
+    const QVector<const char*> defaultValidationLayers = {
         "VK_LAYER_GOOGLE_threading",     "VK_LAYER_LUNARG_parameter_validation",
         "VK_LAYER_LUNARG_device_limits", "VK_LAYER_LUNARG_object_tracker",
         "VK_LAYER_LUNARG_image",         "VK_LAYER_LUNARG_core_validation",
         "VK_LAYER_LUNARG_swapchain",     "VK_LAYER_GOOGLE_unique_objects"
     };
 
-    /* Look for validation layers */
-    VkBool32 validation_found = 0;
+    // Look for validation layers
     if (m_validate) {
         qDebug()<<"enabling validation";
-        err = vkEnumerateInstanceLayerProperties(&instance_layer_count, NULL);
-        Q_ASSERT(!err);
+        auto instanceLayers = getVk<VkLayerProperties>(vkEnumerateInstanceLayerProperties);
 
-        instance_validation_layers = instance_validation_layers_alt1;
-        if (instance_layer_count > 0) {
-            VkLayerProperties *instance_layers =
-                    (VkLayerProperties*) malloc(sizeof (VkLayerProperties) * instance_layer_count);
-            err = vkEnumerateInstanceLayerProperties(&instance_layer_count,
-                    instance_layers);
-            Q_ASSERT(!err);
+        qDebug()<<"found instance layers:" << layerNames(instanceLayers);
 
-
-            validation_found = check_layers(
-                    ARRAY_SIZE(instance_validation_layers_alt1),
-                    instance_validation_layers, instance_layer_count,
-                    instance_layers);
-            if (validation_found) {
-                m_enabled_layer_count = ARRAY_SIZE(instance_validation_layers_alt1);
-                m_device_validation_layers[0] = "VK_LAYER_LUNARG_standard_validation";
-                device_validation_layer_count = 1;
-            } else {
-                // use alternative set of validation layers
-                instance_validation_layers = instance_validation_layers_alt2;
-                m_enabled_layer_count = ARRAY_SIZE(instance_validation_layers_alt2);
-                validation_found = check_layers(
-                    ARRAY_SIZE(instance_validation_layers_alt2),
-                    instance_validation_layers, instance_layer_count,
-                    instance_layers);
-                device_validation_layer_count =
-                        ARRAY_SIZE(instance_validation_layers_alt2);
-                for (uint32_t i = 0; i < device_validation_layer_count; i++) {
-                    m_device_validation_layers[i] =
-                            instance_validation_layers[i];
-                }
-            }
-            free(instance_layers);
+        if (instanceLayers.isEmpty()) {
+            qFatal("could not find any layers. check VK_LAYER_PATH (%s)", getenv("VK_LAYER_PATH"));
         }
 
-        if (!validation_found) {
-            ERR_EXIT("vkEnumerateInstanceLayerProperties failed to find "
-                    "required validation layer.\n\n"
-                    "Please look at the Getting Started guide for additional "
-                    "information.\n",
-                    "vkCreateInstance Failure");
+        if(containsAllLayers(instanceLayers, standardValidation)) {
+            qDebug()<<"using standard validation layer";
+            instanceValidationLayers << standardValidation; // FIXME do we need different layers for instance and device?
+            m_deviceValidationLayers << standardValidation;
+        } else if (containsAllLayers(instanceLayers, defaultValidationLayers)) {
+            qDebug()<<"using default validation layers";
+            instanceValidationLayers << defaultValidationLayers;
+            m_deviceValidationLayers << defaultValidationLayers;
+        } else {
+            qFatal("validation layers requested, but could not find validation layers");
         }
     }
 
     /* Look for instance extensions */
     VkBool32 surfaceExtFound = 0;
     VkBool32 platformSurfaceExtFound = 0;
-    memset(m_extension_names, 0, sizeof(m_extension_names));
 
-    err = vkEnumerateInstanceExtensionProperties(
-        NULL, &instance_extension_count, NULL);
-    Q_ASSERT(!err);
+    auto getExt = [](uint32_t* c, VkExtensionProperties* d) { return vkEnumerateInstanceExtensionProperties(NULL, c, d); };
+    auto instanceExtensions = getVk<VkExtensionProperties>(getExt);
 
-    if (instance_extension_count > 0) {
-        VkExtensionProperties *instance_extensions =
-            (VkExtensionProperties*) malloc(sizeof(VkExtensionProperties) * instance_extension_count);
-        err = vkEnumerateInstanceExtensionProperties(
-            NULL, &instance_extension_count, instance_extensions);
-        Q_ASSERT(!err);
-        for (uint32_t i = 0; i < instance_extension_count; i++) {
-            if (!strcmp(VK_KHR_SURFACE_EXTENSION_NAME,
-                        instance_extensions[i].extensionName)) {
-                surfaceExtFound = 1;
-                m_extension_names[m_enabled_extension_count++] =
-                    VK_KHR_SURFACE_EXTENSION_NAME;
-            }
-            if (!strcmp(VK_KHR_XCB_SURFACE_EXTENSION_NAME,
-                        instance_extensions[i].extensionName)) {
-                platformSurfaceExtFound = 1;
-                m_extension_names[m_enabled_extension_count++] =
-                    VK_KHR_XCB_SURFACE_EXTENSION_NAME;
-            }
-            if (!strcmp(VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
-                        instance_extensions[i].extensionName)) {
-                if (m_validate) {
-                    m_extension_names[m_enabled_extension_count++] =
-                        VK_EXT_DEBUG_REPORT_EXTENSION_NAME;
-                }
-            }
-            Q_ASSERT(m_enabled_extension_count < 64);
+    if (instanceExtensions.isEmpty()) {
+        qFatal("could not find any instance extensions");
+    }
+
+    foreach (const auto& ext, instanceExtensions) {
+        qDebug()<< "instance extension:" << ext.extensionName;
+        if (!strcmp(ext.extensionName, VK_KHR_SURFACE_EXTENSION_NAME)) {
+            surfaceExtFound = 1;
+            m_extensionNames << VK_KHR_SURFACE_EXTENSION_NAME;
         }
-
-        free(instance_extensions);
+        if (!strcmp(ext.extensionName, VK_KHR_XCB_SURFACE_EXTENSION_NAME)) {
+            platformSurfaceExtFound = 1;
+            m_extensionNames << VK_KHR_XCB_SURFACE_EXTENSION_NAME;
+        }
+        if (!strcmp(ext.extensionName, VK_EXT_DEBUG_REPORT_EXTENSION_NAME)) {
+            if (m_validate) {
+                m_extensionNames << VK_EXT_DEBUG_REPORT_EXTENSION_NAME;
+            }
+        }
     }
 
     if (!surfaceExtFound) {
@@ -1965,10 +1909,10 @@ void Demo::init_vk() {
     inst_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     inst_info.pNext = NULL;
     inst_info.pApplicationInfo = &app;
-    inst_info.enabledLayerCount = m_enabled_layer_count;
-    inst_info.ppEnabledLayerNames = (const char *const *)instance_validation_layers;
-    inst_info.enabledExtensionCount = m_enabled_extension_count;
-    inst_info.ppEnabledExtensionNames = (const char *const *)m_extension_names;
+    inst_info.enabledLayerCount = instanceValidationLayers.count();
+    inst_info.ppEnabledLayerNames = instanceValidationLayers.data();
+    inst_info.enabledExtensionCount = m_extensionNames.count();
+    inst_info.ppEnabledExtensionNames = m_extensionNames.data();
 
     /*
      * This is info for a temp callback to use during CreateInstance.
@@ -1987,9 +1931,7 @@ void Demo::init_vk() {
         inst_info.pNext = &dbgCreateInfo;
     }
 
-    uint32_t gpu_count = 0;
-
-    err = vkCreateInstance(&inst_info, NULL, &m_inst);
+    VkResult err = vkCreateInstance(&inst_info, NULL, &m_inst);
     if (err == VK_ERROR_INCOMPATIBLE_DRIVER) {
         ERR_EXIT("Cannot find a compatible Vulkan installable client driver "
                  "(ICD).\n\nPlease look at the Getting Started guide for "
@@ -2006,18 +1948,10 @@ void Demo::init_vk() {
                  "vkCreateInstance Failure");
     }
 
-    /* Make initial call to query gpu_count, then second call for gpu info*/
-    err = vkEnumeratePhysicalDevices(m_inst, &gpu_count, NULL);
-    Q_ASSERT(!err && gpu_count > 0);
+    auto getDev = [this](uint32_t* c, VkPhysicalDevice* d) { return vkEnumeratePhysicalDevices(m_inst, c, d); };
+    auto physicalDevices = getVk<VkPhysicalDevice>(getDev);
 
-    if (gpu_count > 0) {
-        VkPhysicalDevice *physical_devices = (VkPhysicalDevice*)malloc(sizeof(VkPhysicalDevice) * gpu_count);
-        err = vkEnumeratePhysicalDevices(m_inst, &gpu_count, physical_devices);
-        Q_ASSERT(!err);
-        /* For cube demo we just grab the first physical device */
-        m_gpu = physical_devices[0];
-        free(physical_devices);
-    } else {
+    if (physicalDevices.isEmpty()) {
         ERR_EXIT("vkEnumeratePhysicalDevices reported zero accessible devices.\n\n"
                  "Do you have a compatible Vulkan installable client driver (ICD) "
                  "installed?\nPlease look at the Getting Started guide for "
@@ -2025,68 +1959,43 @@ void Demo::init_vk() {
                  "vkEnumeratePhysicalDevices Failure");
     }
 
-    /* Look for validation layers */
-    validation_found = 0;
-    m_enabled_layer_count = 0;
-    uint32_t device_layer_count = 0;
-    err =
-        vkEnumerateDeviceLayerProperties(m_gpu, &device_layer_count, NULL);
-    Q_ASSERT(!err);
+    m_gpu = physicalDevices[0];
 
-    if (device_layer_count > 0) {
-        VkLayerProperties *device_layers =
-            (VkLayerProperties*)malloc(sizeof(VkLayerProperties) * device_layer_count);
-        err = vkEnumerateDeviceLayerProperties(m_gpu, &device_layer_count,
-                                               device_layers);
-        Q_ASSERT(!err);
+    // Look for validation layers
+    if(m_validate) {
+        auto getDevLayers = [this](uint32_t* c, VkLayerProperties* d) { return vkEnumerateDeviceLayerProperties(m_gpu, c, d); };
+        auto deviceLayers= getVk<VkLayerProperties>(getDevLayers);
 
-        if (m_validate) {
-            validation_found = check_layers(device_validation_layer_count,
-                                                 m_device_validation_layers,
-                                                 device_layer_count,
-                                                 device_layers);
-            m_enabled_layer_count = device_validation_layer_count;
+        qDebug()<<"found device Layers:"<<layerNames(deviceLayers);
+
+        if(deviceLayers.isEmpty()) {
+            qFatal("validation requested, but no device validation layers found!");
+        }
+        if(!containsAllLayers(deviceLayers, m_deviceValidationLayers)) {
+            qFatal("validation requested, but not all device validation layers found!");
         }
 
-        free(device_layers);
-    }
-
-    if (m_validate && !validation_found) {
-        ERR_EXIT("vkEnumerateDeviceLayerProperties failed to find "
-                 "a required validation layer.\n\n"
-                 "Please look at the Getting Started guide for additional "
-                 "information.\n",
-                 "vkCreateDevice Failure");
     }
 
     /* Look for device extensions */
-    uint32_t device_extension_count = 0;
     VkBool32 swapchainExtFound = 0;
-    m_enabled_extension_count = 0;
-    memset(m_extension_names, 0, sizeof(m_extension_names));
+    m_extensionNames.clear();
 
-    err = vkEnumerateDeviceExtensionProperties(m_gpu, NULL,
-                                               &device_extension_count, NULL);
-    Q_ASSERT(!err);
+    auto getDevExt = [this](uint32_t* c, VkExtensionProperties* d) {
+        return vkEnumerateDeviceExtensionProperties(m_gpu, nullptr/*layerName?*/, c, d);
+    };
+    auto deviceExtensions = getVk<VkExtensionProperties>(getDevExt);
 
-    if (device_extension_count > 0) {
-        VkExtensionProperties *device_extensions =
-            (VkExtensionProperties*)malloc(sizeof(VkExtensionProperties) * device_extension_count);
-        err = vkEnumerateDeviceExtensionProperties(
-            m_gpu, NULL, &device_extension_count, device_extensions);
-        Q_ASSERT(!err);
+    if(deviceExtensions.isEmpty()) {
+        qFatal("no device extensions found!");
+    }
 
-        for (uint32_t i = 0; i < device_extension_count; i++) {
-            if (!strcmp(VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-                        device_extensions[i].extensionName)) {
-                swapchainExtFound = 1;
-                m_extension_names[m_enabled_extension_count++] =
-                    VK_KHR_SWAPCHAIN_EXTENSION_NAME;
-            }
-            Q_ASSERT(m_enabled_extension_count < 64);
+    foreach (const auto& ext, deviceExtensions) {
+        qDebug()<<"device extension"<<ext.extensionName;
+        if (!strcmp(ext.extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME)) {
+            swapchainExtFound = 1;
+            m_extensionNames << VK_KHR_SWAPCHAIN_EXTENSION_NAME;
         }
-
-        free(device_extensions);
     }
 
     if (!swapchainExtFound) {
@@ -2187,26 +2096,24 @@ void Demo::create_device() {
     VkResult U_ASSERT_ONLY err;
     float queue_priorities[1] = {0.0};
     VkDeviceQueueCreateInfo queue = {};
-        queue.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        queue.pNext = NULL;
-        queue.queueFamilyIndex = m_graphics_queue_node_index;
-        queue.queueCount = 1;
-        queue.pQueuePriorities = queue_priorities;
+    queue.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queue.pNext = NULL;
+    queue.queueFamilyIndex = m_graphics_queue_node_index;
+    queue.queueCount = 1;
+    queue.pQueuePriorities = queue_priorities;
 
     VkDeviceCreateInfo device_ci = {};
-        device_ci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-        device_ci.pNext = NULL;
-        device_ci.queueCreateInfoCount = 1;
-        device_ci.pQueueCreateInfos = &queue;
-        device_ci.enabledLayerCount = m_enabled_layer_count;
-        device_ci.ppEnabledLayerNames =
-            (const char *const *)((m_validate)
-                                      ? m_device_validation_layers
-                                      : NULL);
-        device_ci.enabledExtensionCount = m_enabled_extension_count;
-        device_ci.ppEnabledExtensionNames = (const char *const *)m_extension_names;
-        device_ci.pEnabledFeatures =
-            NULL; // If specific features are required, pass them in here
+    device_ci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    device_ci.pNext = NULL;
+    device_ci.queueCreateInfoCount = 1;
+    device_ci.pQueueCreateInfos = &queue;
+    if(m_validate) {
+        device_ci.enabledLayerCount = m_deviceValidationLayers.count();
+        device_ci.ppEnabledLayerNames =  m_deviceValidationLayers.data();
+    }
+    device_ci.enabledExtensionCount = m_extensionNames.count();
+    device_ci.ppEnabledExtensionNames = m_extensionNames.data();
+    device_ci.pEnabledFeatures = NULL; // If specific features are required, pass them in here
 
     err = vkCreateDevice(m_gpu, &device_ci, NULL, &m_device);
     Q_ASSERT(!err);
