@@ -76,6 +76,10 @@ public slots:
     void redraw();
 
 private:
+    // we don't support copying
+    Demo(const Demo&) = delete;
+    Demo operator=(const Demo&) = delete;
+
     VkSurfaceKHR m_surface      {0};
     bool m_prepared             { false };
     bool m_use_staging_buffer   { false };
@@ -89,15 +93,16 @@ private:
     QVector<VkQueueFamilyProperties> m_queueProps           {0};
     VkPhysicalDeviceMemoryProperties m_memory_properties    {};
 
-    QVector<const char*> m_extensionNames;
-    QVector<const char*> m_deviceValidationLayers;
+    QVector<const char*> m_extensionNames           {};
+    QVector<const char*> m_deviceValidationLayers   {};
 
     VkFormat m_format               {};
     VkColorSpaceKHR m_color_space   {};
 
     VkSwapchainKHR m_swapchain {0};
-    QVector<SwapchainBuffers> m_buffers;
-    QVector<VkFramebuffer> m_framebuffers;  //FIXME these seem to have the same size should they be in the same vector?
+    QVector<SwapchainBuffers> m_buffers     {};
+    //FIXME these seem to have the same size should they be in the same vector?
+    QVector<VkFramebuffer> m_framebuffers   {};
 
     VkCommandPool m_cmd_pool  {0};
 
@@ -127,9 +132,9 @@ private:
     VkPipeline m_pipeline               {0};
     uint32_t m_current_buffer           {0};
 
-    QMatrix4x4 m_projection_matrix;
-    QMatrix4x4 m_view_matrix;
-    QMatrix4x4 m_model_matrix;
+    QMatrix4x4 m_projection_matrix  {};
+    QMatrix4x4 m_view_matrix        {};
+    QMatrix4x4 m_model_matrix       {};
 
     float m_spin_angle  {0.1f};
     float m_spin_increment  {0.1f};
@@ -160,7 +165,7 @@ private:
     PFN_vkAcquireNextImageKHR fpAcquireNextImageKHR     {0};
     PFN_vkQueuePresentKHR fpQueuePresentKHR             {0};
 
-    QElapsedTimer m_fpsTimer;
+    QElapsedTimer m_fpsTimer {};
 };
 
 #define GET_INSTANCE_PROC_ADDR(inst, entrypoint)                               \

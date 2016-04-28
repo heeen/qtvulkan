@@ -198,7 +198,8 @@ public:
         stack--;
         operator ()("<<< %s", f);
     }
-    void operator() (const char *__format, ...) {
+    // 2 format is actually arg no. 2 because of this ptr?
+    void operator() (const char *__format, ...) __attribute__ ((format (printf, 2, 3))) {
         va_list arglist;
         va_start(arglist,__format);
         for(uint32_t i=0; i< stack;i++) fputs("  ", stdout);
@@ -208,6 +209,9 @@ public:
     }
     static uint32_t stack;
     const char* f;
+    ScopeDebug(const ScopeDebug&) = delete;
+    ScopeDebug operator=(const ScopeDebug&) = delete;
+
 };
 uint32_t ScopeDebug::stack = 0;
 
@@ -291,6 +295,7 @@ Demo::~Demo()
     }
 
     vkDestroyCommandPool(m_device, m_cmd_pool, NULL);
+
     vkDestroyDevice(m_device, NULL);
     if (m_validate) {
         DestroyDebugReportCallback(m_inst, msg_callback, NULL);
@@ -483,15 +488,13 @@ void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
                             NULL);
 
     VkViewport viewport = {};
-    memset(&viewport, 0, sizeof(viewport));
     viewport.height = (float)height();
     viewport.width = (float)width();
     viewport.minDepth = (float)0.0f;
     viewport.maxDepth = (float)1.0f;
     vkCmdSetViewport(cmd_buf, 0, 1, &viewport);
 
-    VkRect2D scissor {};
-    memset(&scissor, 0, sizeof(scissor));
+    VkRect2D scissor = {};
     scissor.extent.width = (uint32_t)qMax(0, width());
     scissor.extent.height = (uint32_t)qMax(0, height());
     scissor.offset.x = 0;
@@ -675,7 +678,7 @@ void Demo::prepare_buffers() {
     // and is fastest (though it tears).  If not, fall back to FIFO which is
     // always available.
     VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
-    for (size_t i = 0; i < presentModeCount; i++) {
+    for (uint32_t i = 0; i < presentModeCount; i++) {
         if (presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
             swapchainPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
             break;
@@ -1013,9 +1016,7 @@ void Demo::prepare_textures() {
         } else if (props.optimalTilingFeatures &
                    VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) {
             /* Must use staging buffer to copy linear texture to optimized */
-            struct texture_object staging_texture;
-
-            memset(&staging_texture, 0, sizeof(staging_texture));
+            struct texture_object staging_texture = {};
             prepare_texture_image(tex_files[i], &staging_texture,
                                        VK_IMAGE_TILING_LINEAR,
                                        VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
@@ -1114,8 +1115,6 @@ void Demo::prepare_textures() {
 void Demo::prepare_cube_data_buffer() {
     DEBUG_ENTRY;
 
-    VkBufferCreateInfo buf_info;
-    VkMemoryRequirements mem_reqs;
     uint8_t *pData;
     int i;
     QMatrix4x4 MVP, VP;
@@ -1138,16 +1137,14 @@ void Demo::prepare_cube_data_buffer() {
         data.attr[i][3] = 0;
     }
 
-    memset(&buf_info, 0, sizeof(buf_info));
+    VkBufferCreateInfo buf_info = {};
     buf_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     buf_info.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
     buf_info.size = sizeof(data);
-    err =
-        vkCreateBuffer(m_device, &buf_info, NULL, &m_uniform_data.buf);
+    err = vkCreateBuffer(m_device, &buf_info, NULL, &m_uniform_data.buf);
     Q_ASSERT(!err);
-
-    vkGetBufferMemoryRequirements(m_device, m_uniform_data.buf,
-                                  &mem_reqs);
+    VkMemoryRequirements mem_reqs = {};
+    vkGetBufferMemoryRequirements(m_device, m_uniform_data.buf, &mem_reqs);
 
     m_uniform_data.mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     m_uniform_data.mem_alloc.pNext = NULL;
@@ -1305,36 +1302,19 @@ VkShaderModule Demo::createShaderModule(QString filename) {
 void Demo::prepare_pipeline() {
     DEBUG_ENTRY;
 
-    VkGraphicsPipelineCreateInfo pipeline_ci = {};
-    VkPipelineCacheCreateInfo pipelineCache_ci = {};
-    VkPipelineVertexInputStateCreateInfo vi = {};
-    VkPipelineInputAssemblyStateCreateInfo ia = {};
-    VkPipelineRasterizationStateCreateInfo rs = {};
-    VkPipelineColorBlendStateCreateInfo cb = {};
-    VkPipelineDepthStencilStateCreateInfo ds = {};
-    VkPipelineViewportStateCreateInfo vp = {};
-    VkPipelineMultisampleStateCreateInfo ms = {};
-    VkDynamicState dynamicStateEnables[VK_DYNAMIC_STATE_RANGE_SIZE];
+    VkDynamicState dynamicStateEnables[VK_DYNAMIC_STATE_RANGE_SIZE] = {};
     VkPipelineDynamicStateCreateInfo dynamicState = {};
-    VkResult U_ASSERT_ONLY err;
-
-    memset(dynamicStateEnables, 0, sizeof dynamicStateEnables);
-    memset(&dynamicState, 0, sizeof dynamicState);
     dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     dynamicState.pDynamicStates = dynamicStateEnables;
 
-    memset(&pipeline_ci, 0, sizeof(pipeline_ci));
-    pipeline_ci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipeline_ci.layout = m_pipeline_layout;
-
-    memset(&vi, 0, sizeof(vi));
+    VkPipelineVertexInputStateCreateInfo vi = {};
     vi.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-    memset(&ia, 0, sizeof(ia));
+    VkPipelineInputAssemblyStateCreateInfo ia = {};
     ia.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     ia.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
-    memset(&rs, 0, sizeof(rs));
+    VkPipelineRasterizationStateCreateInfo rs = {};
     rs.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     rs.polygonMode = VK_POLYGON_MODE_FILL;
     rs.cullMode = VK_CULL_MODE_BACK_BIT;
@@ -1344,24 +1324,23 @@ void Demo::prepare_pipeline() {
     rs.depthBiasEnable = VK_FALSE;
     rs.lineWidth = 1.0f;
 
-    memset(&cb, 0, sizeof(cb));
+    VkPipelineColorBlendAttachmentState att_state = {};
+    att_state.colorWriteMask = 0xf;
+    att_state.blendEnable = VK_FALSE;
+
+    VkPipelineColorBlendStateCreateInfo cb = {};
     cb.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    VkPipelineColorBlendAttachmentState *att_state = (VkPipelineColorBlendAttachmentState*)malloc(sizeof(*att_state));
-    memset(att_state, 0x0, sizeof(*att_state));
-    att_state[0].colorWriteMask = 0xf;
-    att_state[0].blendEnable = VK_FALSE;
-
     cb.attachmentCount = 1;
-    cb.pAttachments = att_state;
+    cb.pAttachments = &att_state; // debug report layer has a bug where it reads from a stack ptr
 
-    memset(&vp, 0, sizeof(vp));
+    VkPipelineViewportStateCreateInfo vp = {};
     vp.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     vp.viewportCount = 1;
     dynamicStateEnables[dynamicState.dynamicStateCount++] = VK_DYNAMIC_STATE_VIEWPORT;
     vp.scissorCount = 1;
     dynamicStateEnables[dynamicState.dynamicStateCount++] = VK_DYNAMIC_STATE_SCISSOR;
 
-    memset(&ds, 0, sizeof(ds));
+    VkPipelineDepthStencilStateCreateInfo ds = {};
     ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     ds.depthTestEnable = VK_TRUE;
     ds.depthWriteEnable = VK_TRUE;
@@ -1373,15 +1352,13 @@ void Demo::prepare_pipeline() {
     ds.stencilTestEnable = VK_FALSE;
     ds.front = ds.back;
 
-    memset(&ms, 0, sizeof(ms));
+    VkPipelineMultisampleStateCreateInfo ms = {};
     ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     ms.pSampleMask = NULL;
     ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-    // Two stages: vs and fs
-    pipeline_ci.stageCount = 2;
-    VkPipelineShaderStageCreateInfo shaderStages[2];
-    memset(&shaderStages, 0, 2 * sizeof(VkPipelineShaderStageCreateInfo));
+    const int numStages = 2;      // Two stages: vs and fs
+    VkPipelineShaderStageCreateInfo shaderStages[numStages] = {};
 
     shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
@@ -1393,12 +1370,17 @@ void Demo::prepare_pipeline() {
     shaderStages[1].module = createShaderModule("cube-frag.spv");
     shaderStages[1].pName = "main";
 
-    memset(&pipelineCache_ci, 0, sizeof(pipelineCache_ci));
+    VkPipelineCacheCreateInfo pipelineCache_ci = {};
     pipelineCache_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
 
+    VkResult U_ASSERT_ONLY err;
     err = vkCreatePipelineCache(m_device, &pipelineCache_ci, NULL, &m_pipelineCache);
     Q_ASSERT(!err);
 
+    VkGraphicsPipelineCreateInfo pipeline_ci = {};
+    pipeline_ci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipeline_ci.layout = m_pipeline_layout;
+    pipeline_ci.stageCount = numStages;
     pipeline_ci.pVertexInputState = &vi;
     pipeline_ci.pInputAssemblyState = &ia;
     pipeline_ci.pRasterizationState = &rs;
@@ -1411,9 +1393,7 @@ void Demo::prepare_pipeline() {
     pipeline_ci.pDynamicState = &dynamicState;
     pipeline_ci.renderPass = m_render_pass;
 
-
-    err = vkCreateGraphicsPipelines(m_device, m_pipelineCache, 1,
-                                    &pipeline_ci, NULL, &m_pipeline);
+    err = vkCreateGraphicsPipelines(m_device, m_pipelineCache, 1, &pipeline_ci, NULL, &m_pipeline);
     Q_ASSERT(!err);
 
     for ( uint32_t i = 0; i < pipeline_ci.stageCount; i++ ) {
@@ -1447,11 +1427,6 @@ void Demo::prepare_descriptor_pool() {
 void Demo::prepare_descriptor_set() {
     DEBUG_ENTRY;
 
-    VkDescriptorImageInfo tex_descs[DEMO_TEXTURE_COUNT];
-    VkWriteDescriptorSet writes[2]={{},{}};
-    VkResult U_ASSERT_ONLY err;
-    uint32_t i;
-
     VkDescriptorSetAllocateInfo alloc_info = {};
     alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     alloc_info.pNext = NULL;
@@ -1459,18 +1434,18 @@ void Demo::prepare_descriptor_set() {
     alloc_info.descriptorSetCount = 1;
     alloc_info.pSetLayouts = &m_desc_layout;
 
+    VkResult U_ASSERT_ONLY err;
     err = vkAllocateDescriptorSets(m_device, &alloc_info, &m_desc_set);
     Q_ASSERT(!err);
 
-    memset(&tex_descs, 0, sizeof(tex_descs));
-    for (i = 0; i < DEMO_TEXTURE_COUNT; i++) {
+    VkDescriptorImageInfo tex_descs[DEMO_TEXTURE_COUNT] = {};
+    for (uint32_t i = 0; i < DEMO_TEXTURE_COUNT; i++) {
         tex_descs[i].sampler = m_textures[i].sampler;
         tex_descs[i].imageView = m_textures[i].view;
         tex_descs[i].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
     }
 
-    memset(&writes, 0, sizeof(writes));
-
+    VkWriteDescriptorSet writes[2]={{},{}};
     writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     writes[0].dstSet = m_desc_set;
     writes[0].descriptorCount = 1;
@@ -1628,8 +1603,7 @@ void Demo::resize_vk() {
 
     for (int i = 0; i < m_buffers.count(); i++) {
         vkDestroyImageView(m_device, m_buffers[i].view, NULL);
-        vkFreeCommandBuffers(m_device, m_cmd_pool, 1,
-                             &m_buffers[i].cmd);
+        vkFreeCommandBuffers(m_device, m_cmd_pool, 1, &m_buffers[i].cmd);
     }
     vkDestroyCommandPool(m_device, m_cmd_pool, NULL);
     m_buffers.clear();
@@ -1892,7 +1866,7 @@ void Demo::init_vk() {
                      "vkGetProcAddr Failure");
         }
 
-        VkDebugReportCallbackCreateInfoEXT dbgCreateInfo;
+        dbgCreateInfo = {};
         PFN_vkDebugReportCallbackEXT callback;
         callback = m_use_break ? BreakCallback : dbgFunc;
         dbgCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
@@ -1902,8 +1876,7 @@ void Demo::init_vk() {
         dbgCreateInfo.flags =
             VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
         //| VK_DEBUG_REPORT_INFORMATION_BIT_EXT;
-        err = CreateDebugReportCallback(m_inst, &dbgCreateInfo, NULL,
-                                              &msg_callback);
+        err = CreateDebugReportCallback(m_inst, &dbgCreateInfo, NULL, &msg_callback);
         switch (err) {
         case VK_SUCCESS:
             break;

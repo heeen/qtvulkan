@@ -3,7 +3,32 @@ QT += widgets gui gui-private
 # FIXME paths...
 INCLUDEPATH += $$PWD/../../Vulkan-LoaderAndValidationLayers/include
 LIBS += -lvulkan -L$$PWD/../../Vulkan-LoaderAndValidationLayers/dbuild/loader -lxcb
+QMAKE_CXXFLAGS += -g -O -Wall -Weffc++ -pedantic  \
+    -pedantic-errors -Wextra  -Wcast-align \
+    -Wcast-qual  -Wchar-subscripts -Wcomment -Wconversion \
+    -Wdisabled-optimization \
+    -Wfloat-equal  -Wformat  -Wformat=2 \
+    -Wformat-nonliteral -Wformat-security  \
+    -Wformat-y2k \
+    -Wimplicit  -Wimport  -Winit-self  -Winline \
+    -Winvalid-pch   \
+    -Wunsafe-loop-optimizations  -Wlong-long -Wmissing-braces \
+    -Wmissing-field-initializers -Wmissing-format-attribute   \
+    -Wmissing-include-dirs -Wmissing-noreturn \
+    -Wpacked -Wparentheses  -Wpointer-arith \
+    -Wredundant-decls -Wreturn-type \
+    -Wsequence-point  -Wshadow -Wsign-compare  -Wstack-protector \
+    -Wstrict-aliasing -Wstrict-aliasing=2 -Wswitch  -Wswitch-default \
+    -Wtrigraphs  -Wuninitialized \
+    -Wunknown-pragmas  -Wunreachable-code -Wunused \
+    -Wunused-function  -Wunused-label  -Wunused-parameter \
+    -Wunused-value  -Wunused-variable  -Wvariadic-macros \
+    -Wvolatile-register-var  -Wwrite-strings \
+    -Werror
 
+# -Wswitch-enum
+# warnings caused by vulkan.h: -Wpadded
+# warnings caused by Qt: -Waggregate-return
 SOURCES += \
     cube.cpp
 
