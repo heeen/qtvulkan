@@ -29,6 +29,7 @@
 #include <assert.h>
 #include <signal.h>
 #include <QTimer>
+#include <stdarg.h>
 
 #include <cube.h>
 #include <QApplication>
@@ -193,18 +194,39 @@ BreakCallback(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
 #else
     DebugBreak();
 #endif
-
     return false;
 }
 
+class ScopeDebug {
+public:
+    ScopeDebug(const char* func) : f(func){
+        operator ()(">>> %s", f);
+        stack++;
+    }
+    ~ScopeDebug() {
+        stack--;
+        operator ()("<<< %s", f);
+    }
+    void operator() (const char *__format, ...) {
+        va_list arglist;
+        va_start(arglist,__format);
+        for(uint32_t i=0; i< stack;i++) fputs("  ", stdout);
+        vprintf(__format, arglist);
+        va_end(arglist);
+        fputs("\n",stdout);
+    }
+    static uint32_t stack;
+    const char* f;
+};
+uint32_t ScopeDebug::stack = 0;
+
+
 #if 0
-#define DEBUG_ENTRY printf("===========%s=========\n", __PRETTY_FUNCTION__)
+#define DEBUG_ENTRY ScopeDebug DBG(__PRETTY_FUNCTION__);
 #else
 #define DEBUG_ENTRY {}
+#define DBG(...)
 #endif
-
-static void demo_create_xcb_window(struct Demo *demo);
-static void demo_run_xcb(struct Demo *demo);
 
 int main(int argc, char **argv) {
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -801,7 +823,6 @@ void Demo::prepare_buffers() {
 }
 
 void Demo::prepare_depth() {
-    DEBUG_ENTRY;
     DEBUG_ENTRY;
 
     const VkFormat depth_format = VK_FORMAT_D16_UNORM;
@@ -1792,10 +1813,10 @@ VkBool32 Demo::check_layers(uint32_t check_count, const char **check_names,
 
 void Demo::resizeEvent(QResizeEvent *e)
 {
-    qDebug()<<e;
     DEBUG_ENTRY;
 
     resize_vk();
+    draw();
     e->accept(); //FIXME?
     QWindow::resizeEvent(e);
 }
