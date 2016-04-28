@@ -257,9 +257,7 @@ Demo::Demo() :
     m_queue(0),
     m_graphics_queue_node_index(0),
     m_gpu_props({}),
-    m_queue_props(0),
     m_memory_properties({}),
-    m_swapchainImageCount(0),
     m_swapchain(0),
     m_buffers(0),
     m_cmd_pool(0),
@@ -274,11 +272,8 @@ Demo::Demo() :
     m_spin_angle(0.01f),
     m_spin_increment(0.01f),
     m_pause(false),
-    m_vert_shader_module(0),
-    m_frag_shader_module(0),
     m_desc_pool(0),
     m_desc_set(0),
-    m_framebuffers(0),
     m_quit(false),
     m_curFrame(0),
     m_frameCount(0),
@@ -311,7 +306,48 @@ Demo::Demo() :
 
 Demo::~Demo()
 {
-    cleanup();
+    DEBUG_ENTRY;
+
+    m_prepared = false;
+
+    for (int i = 0; i < m_framebuffers.count(); i++) {
+        vkDestroyFramebuffer(m_device, m_framebuffers[i], NULL);
+    }
+    vkDestroyDescriptorPool(m_device, m_desc_pool, NULL);
+
+    vkDestroyPipeline(m_device, m_pipeline, NULL);
+    vkDestroyPipelineCache(m_device, m_pipelineCache, NULL);
+    vkDestroyRenderPass(m_device, m_render_pass, NULL);
+    vkDestroyPipelineLayout(m_device, m_pipeline_layout, NULL);
+    vkDestroyDescriptorSetLayout(m_device, m_desc_layout, NULL);
+
+    for (int i = 0; i < DEMO_TEXTURE_COUNT; i++) {
+        vkDestroyImageView(m_device, m_textures[i].view, NULL);
+        vkDestroyImage(m_device, m_textures[i].image, NULL);
+        vkFreeMemory(m_device, m_textures[i].mem, NULL);
+        vkDestroySampler(m_device, m_textures[i].sampler, NULL);
+    }
+    fpDestroySwapchainKHR(m_device, m_swapchain, NULL);
+
+    vkDestroyImageView(m_device, m_depth.view, NULL);
+    vkDestroyImage(m_device, m_depth.image, NULL);
+    vkFreeMemory(m_device, m_depth.mem, NULL);
+
+    vkDestroyBuffer(m_device, m_uniform_data.buf, NULL);
+    vkFreeMemory(m_device, m_uniform_data.mem, NULL);
+
+    for (int i = 0; i < m_buffers.count(); i++) {
+        vkDestroyImageView(m_device, m_buffers[i].view, NULL);
+        vkFreeCommandBuffers(m_device, m_cmd_pool, 1, &m_buffers[i].cmd);
+    }
+
+    vkDestroyCommandPool(m_device, m_cmd_pool, NULL);
+    vkDestroyDevice(m_device, NULL);
+    if (m_validate) {
+        DestroyDebugReportCallback(m_inst, msg_callback, NULL);
+    }
+    vkDestroySurfaceKHR(m_inst, m_surface, NULL);
+    vkDestroyInstance(m_inst, NULL);
 }
 
 bool Demo::memory_type_from_properties(uint32_t typeBits,
@@ -667,15 +703,10 @@ void Demo::prepare_buffers() {
     Q_ASSERT(!err);
 
     uint32_t presentModeCount = 0;
-    err = fpGetPhysicalDeviceSurfacePresentModesKHR(
-        m_gpu, m_surface, &presentModeCount, NULL);
-    Q_ASSERT(!err);
-    VkPresentModeKHR *presentModes =
-        (VkPresentModeKHR *)malloc(presentModeCount * sizeof(VkPresentModeKHR));
-    Q_ASSERT(presentModes);
-    err = fpGetPhysicalDeviceSurfacePresentModesKHR(
-        m_gpu, m_surface, &presentModeCount, presentModes);
-    Q_ASSERT(!err);
+    auto getPresModes = [this](uint32_t* c, VkPresentModeKHR* d) {
+            return fpGetPhysicalDeviceSurfacePresentModesKHR(m_gpu, m_surface, c, d);
+    };
+    auto presentModes = getVk<VkPresentModeKHR>(getPresModes);
 
     VkExtent2D swapchainExtent = {};
     // width and height are either both -1, or both not -1.
@@ -709,8 +740,7 @@ void Demo::prepare_buffers() {
     // Determine the number of VkImage's to use in the swap chain (we desire to
     // own only 1 image at a time, besides the images being displayed and
     // queued for display):
-    uint32_t desiredNumberOfSwapchainImages =
-        surfCapabilities.minImageCount + 1;
+    uint32_t desiredNumberOfSwapchainImages = surfCapabilities.minImageCount + 1;
     if ((surfCapabilities.maxImageCount > 0) &&
         (desiredNumberOfSwapchainImages > surfCapabilities.maxImageCount)) {
         // Application must settle for fewer images than desired:
@@ -744,7 +774,6 @@ void Demo::prepare_buffers() {
         swapchain_ci.presentMode = swapchainPresentMode;
         swapchain_ci.oldSwapchain = oldSwapchain;
         swapchain_ci.clipped = true;
-    uint32_t i;
 
     err = fpCreateSwapchainKHR(m_device, &swapchain_ci, NULL, &m_swapchain);
     Q_ASSERT(!err);
@@ -757,23 +786,17 @@ void Demo::prepare_buffers() {
         fpDestroySwapchainKHR(m_device, oldSwapchain, NULL);
     }
 
-    err = fpGetSwapchainImagesKHR(m_device, m_swapchain,
-                                        &m_swapchainImageCount, NULL);
-    Q_ASSERT(!err);
+    auto getSwapChainImages = [this](uint32_t* c, VkImage* d) {
+        return fpGetSwapchainImagesKHR(m_device, m_swapchain, c, d);
+    };
 
-    VkImage *swapchainImages =
-        (VkImage *)malloc(m_swapchainImageCount * sizeof(VkImage));
-    Q_ASSERT(swapchainImages);
-    err = fpGetSwapchainImagesKHR(m_device, m_swapchain,
-                                        &m_swapchainImageCount,
-                                        swapchainImages);
-    Q_ASSERT(!err);
+    auto swapchainImages = getVk<VkImage>(getSwapChainImages);
+    Q_ASSERT(!swapchainImages.isEmpty());
 
-    m_buffers = (SwapchainBuffers *)malloc(sizeof(SwapchainBuffers) *
-                                               m_swapchainImageCount);
-    Q_ASSERT(m_buffers);
 
-    for (i = 0; i < m_swapchainImageCount; i++) {
+    m_buffers.resize(swapchainImages.count());
+
+    for (int i = 0; i < m_buffers.count(); i++) {
         VkImageViewCreateInfo color_image_view = {};
         color_image_view.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         color_image_view.pNext = NULL;
@@ -805,13 +828,8 @@ void Demo::prepare_buffers() {
 
         color_image_view.image = m_buffers[i].image;
 
-        err = vkCreateImageView(m_device, &color_image_view, NULL,
-                                &m_buffers[i].view);
+        err = vkCreateImageView(m_device, &color_image_view, NULL, &m_buffers[i].view);
         Q_ASSERT(!err);
-    }
-
-    if (NULL != presentModes) {
-        free(presentModes);
     }
 }
 
@@ -1309,80 +1327,30 @@ void Demo::prepare_render_pass() {
     Q_ASSERT(!err);
 }
 
-VkShaderModule Demo::prepare_shader_module(const char *code, size_t size) {
+VkShaderModule Demo::createShaderModule(QString filename) {
     DEBUG_ENTRY;
-
     VkResult U_ASSERT_ONLY err;
-    VkShaderModule module = 0;
+
+    QFile file(filename);
+    if(!file.open(QIODevice::ReadOnly))
+        qFatal("could not read shader file!");
+
+    QByteArray code = file.readAll();
+
     VkShaderModuleCreateInfo moduleCreateInfo = {};
 
     moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     moduleCreateInfo.pNext = NULL;
 
-    moduleCreateInfo.codeSize = size;
-    moduleCreateInfo.pCode = (uint32_t*)code;
+    moduleCreateInfo.codeSize = code.size();
+    moduleCreateInfo.pCode = (uint32_t*) code.data(); //possible alignment issue?
     moduleCreateInfo.flags = 0;
+
+    VkShaderModule module = 0;
     err = vkCreateShaderModule(m_device, &moduleCreateInfo, NULL, &module);
     Q_ASSERT(!err);
 
     return module;
-}
-
-char *demo_read_spv(const char *filename, size_t *psize) {
-    long int size;
-    size_t U_ASSERT_ONLY retval;
-    char *shader_code;
-
-    FILE *fp = fopen(filename, "rb");
-    if (!fp)
-        return NULL;
-
-    fseek(fp, 0L, SEEK_END);
-    size = ftell(fp);
-
-    fseek(fp, 0L, SEEK_SET);
-
-    shader_code = (char*)malloc(size);
-    retval = fread(shader_code, size, 1, fp);
-    Q_ASSERT(retval == 1);
-
-    *psize = size;
-
-    fclose(fp);
-    return shader_code;
-}
-
-VkShaderModule Demo::prepare_vs() {
-    DEBUG_ENTRY;
-
-    char *vertShaderCode;
-    size_t size;
-
-    vertShaderCode = demo_read_spv("cube-vert.spv", &size);
-
-    Q_ASSERT(vertShaderCode);
-    m_vert_shader_module =
-        prepare_shader_module(vertShaderCode, size);
-
-    free(vertShaderCode);
-
-    return m_vert_shader_module;
-}
-
-VkShaderModule Demo::prepare_fs() {
-    DEBUG_ENTRY;
-
-    char *fragShaderCode;
-    size_t size;
-
-    fragShaderCode = demo_read_spv("cube-frag.spv", &size);
-    Q_ASSERT(fragShaderCode);
-    m_frag_shader_module =
-        prepare_shader_module(fragShaderCode, size);
-
-    free(fragShaderCode);
-
-    return m_frag_shader_module;
 }
 
 void Demo::prepare_pipeline() {
@@ -1468,12 +1436,12 @@ void Demo::prepare_pipeline() {
 
     shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-    shaderStages[0].module = prepare_vs();
+    shaderStages[0].module = createShaderModule("cube-vert.spv");
     shaderStages[0].pName = "main";
 
     shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    shaderStages[1].module = prepare_fs();
+    shaderStages[1].module = createShaderModule("cube-frag.spv");
     shaderStages[1].pName = "main";
 
     memset(&pipelineCache_ci, 0, sizeof(pipelineCache_ci));
@@ -1499,8 +1467,9 @@ void Demo::prepare_pipeline() {
                                     &pipeline_ci, NULL, &m_pipeline);
     Q_ASSERT(!err);
 
-    vkDestroyShaderModule(m_device, m_frag_shader_module, NULL);
-    vkDestroyShaderModule(m_device, m_vert_shader_module, NULL);
+    for ( uint32_t i = 0; i < pipeline_ci.stageCount; i++ ) {
+        vkDestroyShaderModule(m_device, shaderStages[i].module, NULL);
+    }
 }
 
 void Demo::prepare_descriptor_pool() {
@@ -1586,16 +1555,12 @@ void Demo::prepare_framebuffers() {
     fb_info.layers = 1;
 
     VkResult U_ASSERT_ONLY err;
-    uint32_t i;
 
-    m_framebuffers = (VkFramebuffer *)malloc(m_swapchainImageCount *
-                                                 sizeof(VkFramebuffer));
-    Q_ASSERT(m_framebuffers);
+    m_framebuffers.resize(m_buffers.count());
 
-    for (i = 0; i < m_swapchainImageCount; i++) {
+    for (int i = 0; i < m_buffers.count(); i++) {
         attachments[0] = m_buffers[i].view;
-        err = vkCreateFramebuffer(m_device, &fb_info, NULL,
-                                  &m_framebuffers[i]);
+        err = vkCreateFramebuffer(m_device, &fb_info, NULL, &m_framebuffers[i]);
         Q_ASSERT(!err);
     }
 }
@@ -1648,7 +1613,7 @@ void Demo::prepare() {
     prepare_render_pass();
     prepare_pipeline();
 
-    for (uint32_t i = 0; i < m_swapchainImageCount; i++) {
+    for (int i = 0; i < m_buffers.count(); i++) {
         err =
             vkAllocateCommandBuffers(m_device, &cmd, &m_buffers[i].cmd);
         Q_ASSERT(!err);
@@ -1659,7 +1624,7 @@ void Demo::prepare() {
 
     prepare_framebuffers();
 
-    for (uint32_t i = 0; i < m_swapchainImageCount; i++) {
+    for (int i = 0; i < m_buffers.count(); i++) {
         m_current_buffer = i;
         draw_build_cmd(m_buffers[i].cmd);
     }
@@ -1674,62 +1639,8 @@ void Demo::prepare() {
     m_prepared = true;
 }
 
-void Demo::cleanup() {
-    DEBUG_ENTRY;
-
-    uint32_t i;
-
-    m_prepared = false;
-
-    for (i = 0; i < m_swapchainImageCount; i++) {
-        vkDestroyFramebuffer(m_device, m_framebuffers[i], NULL);
-    }
-    free(m_framebuffers);
-    vkDestroyDescriptorPool(m_device, m_desc_pool, NULL);
-
-    vkDestroyPipeline(m_device, m_pipeline, NULL);
-    vkDestroyPipelineCache(m_device, m_pipelineCache, NULL);
-    vkDestroyRenderPass(m_device, m_render_pass, NULL);
-    vkDestroyPipelineLayout(m_device, m_pipeline_layout, NULL);
-    vkDestroyDescriptorSetLayout(m_device, m_desc_layout, NULL);
-
-    for (i = 0; i < DEMO_TEXTURE_COUNT; i++) {
-        vkDestroyImageView(m_device, m_textures[i].view, NULL);
-        vkDestroyImage(m_device, m_textures[i].image, NULL);
-        vkFreeMemory(m_device, m_textures[i].mem, NULL);
-        vkDestroySampler(m_device, m_textures[i].sampler, NULL);
-    }
-    fpDestroySwapchainKHR(m_device, m_swapchain, NULL);
-
-    vkDestroyImageView(m_device, m_depth.view, NULL);
-    vkDestroyImage(m_device, m_depth.image, NULL);
-    vkFreeMemory(m_device, m_depth.mem, NULL);
-
-    vkDestroyBuffer(m_device, m_uniform_data.buf, NULL);
-    vkFreeMemory(m_device, m_uniform_data.mem, NULL);
-
-    for (i = 0; i < m_swapchainImageCount; i++) {
-        vkDestroyImageView(m_device, m_buffers[i].view, NULL);
-        vkFreeCommandBuffers(m_device, m_cmd_pool, 1,
-                             &m_buffers[i].cmd);
-    }
-    free(m_buffers);
-
-    free(m_queue_props);
-
-    vkDestroyCommandPool(m_device, m_cmd_pool, NULL);
-    vkDestroyDevice(m_device, NULL);
-    if (m_validate) {
-        DestroyDebugReportCallback(m_inst, msg_callback, NULL);
-    }
-    vkDestroySurfaceKHR(m_inst, m_surface, NULL);
-    vkDestroyInstance(m_inst, NULL);
-}
-
 void Demo::resize_vk() {
     DEBUG_ENTRY;
-
-    uint32_t i;
 
     // Don't react to resize until after first initialization.
     if (!m_prepared) {
@@ -1741,10 +1652,9 @@ void Demo::resize_vk() {
     // First, perform part of the demo_cleanup() function:
     m_prepared = false;
 
-    for (i = 0; i < m_swapchainImageCount; i++) {
+    for (int i = 0; i < m_framebuffers.count(); i++) {
         vkDestroyFramebuffer(m_device, m_framebuffers[i], NULL);
     }
-    free(m_framebuffers);
     vkDestroyDescriptorPool(m_device, m_desc_pool, NULL);
 
     vkDestroyPipeline(m_device, m_pipeline, NULL);
@@ -1753,7 +1663,7 @@ void Demo::resize_vk() {
     vkDestroyPipelineLayout(m_device, m_pipeline_layout, NULL);
     vkDestroyDescriptorSetLayout(m_device, m_desc_layout, NULL);
 
-    for (i = 0; i < DEMO_TEXTURE_COUNT; i++) {
+    for (int i = 0; i < DEMO_TEXTURE_COUNT; i++) {
         vkDestroyImageView(m_device, m_textures[i].view, NULL);
         vkDestroyImage(m_device, m_textures[i].image, NULL);
         vkFreeMemory(m_device, m_textures[i].mem, NULL);
@@ -1767,13 +1677,13 @@ void Demo::resize_vk() {
     vkDestroyBuffer(m_device, m_uniform_data.buf, NULL);
     vkFreeMemory(m_device, m_uniform_data.mem, NULL);
 
-    for (i = 0; i < m_swapchainImageCount; i++) {
+    for (int i = 0; i < m_buffers.count(); i++) {
         vkDestroyImageView(m_device, m_buffers[i].view, NULL);
         vkFreeCommandBuffers(m_device, m_cmd_pool, 1,
                              &m_buffers[i].cmd);
     }
     vkDestroyCommandPool(m_device, m_cmd_pool, NULL);
-    free(m_buffers);
+    m_buffers.clear();
 
     // Second, re-perform the demo_prepare() function, which will re-create the
     // swapchain:
@@ -2060,23 +1970,18 @@ void Demo::init_vk() {
     }
     vkGetPhysicalDeviceProperties(m_gpu, &m_gpu_props);
 
-    /* Call with NULL data to get count */
-    vkGetPhysicalDeviceQueueFamilyProperties(m_gpu, &m_queue_count,
-                                             NULL);
-    Q_ASSERT(m_queue_count >= 1);
+    auto getPhysDevQueFamProp = [this](uint32_t* c, VkQueueFamilyProperties* d) {
+        vkGetPhysicalDeviceQueueFamilyProperties(m_gpu, c, d); return VK_SUCCESS;
+    };
+    m_queueProps = getVk<VkQueueFamilyProperties>(getPhysDevQueFamProp);
 
-    m_queue_props = (VkQueueFamilyProperties *)malloc(
-        m_queue_count * sizeof(VkQueueFamilyProperties));
-    vkGetPhysicalDeviceQueueFamilyProperties(m_gpu, &m_queue_count,
-                                             m_queue_props);
     // Find a queue that supports gfx
-    uint32_t gfx_queue_idx = 0;
-    for (gfx_queue_idx = 0; gfx_queue_idx < m_queue_count;
+    int gfx_queue_idx = 0;
+    for (gfx_queue_idx = 0; gfx_queue_idx < m_queueProps.count();
          gfx_queue_idx++) {
-        if (m_queue_props[gfx_queue_idx].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+        if (m_queueProps[gfx_queue_idx].queueFlags & VK_QUEUE_GRAPHICS_BIT)
             break;
     }
-    Q_ASSERT(gfx_queue_idx < m_queue_count);
     // Query fine-grained feature support for this device.
     //  If app has specific feature requirements it should check supported
     //  features based on this query
@@ -2123,7 +2028,6 @@ void Demo::init_vk_swapchain() {
     DEBUG_ENTRY;
 
     VkResult U_ASSERT_ONLY err;
-    uint32_t i;
 
 // Create a WSI surface for the window:
 #ifdef _WIN32
@@ -2159,19 +2063,18 @@ void Demo::init_vk_swapchain() {
     Q_ASSERT(!err);
 
     // Iterate over each queue to learn whether it supports presenting:
-    VkBool32 *supportsPresent =
-        (VkBool32 *)malloc(m_queue_count * sizeof(VkBool32));
-    for (i = 0; i < m_queue_count; i++) {
-        fpGetPhysicalDeviceSurfaceSupportKHR(m_gpu, i, m_surface,
-                                                   &supportsPresent[i]);
+    QVector<VkBool32> supportsPresent;
+    supportsPresent.resize(m_queueProps.count());
+    for (int i = 0; i < supportsPresent.count(); i++) {
+        fpGetPhysicalDeviceSurfaceSupportKHR(m_gpu, i, m_surface, &supportsPresent[i]);
     }
 
     // Search for a graphics and a present queue in the array of queue
     // families, try to find one that supports both
     uint32_t graphicsQueueNodeIndex = UINT32_MAX;
     uint32_t presentQueueNodeIndex = UINT32_MAX;
-    for (i = 0; i < m_queue_count; i++) {
-        if ((m_queue_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0) {
+    for (int i = 0; i < m_queueProps.count(); i++) {
+        if ((m_queueProps[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0) {
             if (graphicsQueueNodeIndex == UINT32_MAX) {
                 graphicsQueueNodeIndex = i;
             }
@@ -2186,14 +2089,13 @@ void Demo::init_vk_swapchain() {
     if (presentQueueNodeIndex == UINT32_MAX) {
         // If didn't find a queue that supports both graphics and present, then
         // find a separate present queue.
-        for (uint32_t i = 0; i < m_queue_count; ++i) {
+        for (int i = 0; i < m_queueProps.count(); ++i) {
             if (supportsPresent[i] == VK_TRUE) {
                 presentQueueNodeIndex = i;
                 break;
             }
         }
     }
-    free(supportsPresent);
 
     // Generate error if could not find both a graphics and a present queue
     if (graphicsQueueNodeIndex == UINT32_MAX ||
@@ -2222,26 +2124,21 @@ void Demo::init_vk_swapchain() {
     GET_DEVICE_PROC_ADDR(m_device, AcquireNextImageKHR);
     GET_DEVICE_PROC_ADDR(m_device, QueuePresentKHR);
 
-    vkGetDeviceQueue(m_device, m_graphics_queue_node_index, 0,
-                     &m_queue);
+    vkGetDeviceQueue(m_device, m_graphics_queue_node_index, 0, &m_queue);
 
     // Get the list of VkFormat's that are supported:
-    uint32_t formatCount;
-    err = fpGetPhysicalDeviceSurfaceFormatsKHR(m_gpu, m_surface, &formatCount, NULL);
-    Q_ASSERT(formatCount);
-    Q_ASSERT(!err);
-    VkSurfaceFormatKHR *surfFormats =
-        (VkSurfaceFormatKHR *)malloc(formatCount * sizeof(VkSurfaceFormatKHR));
-    err = fpGetPhysicalDeviceSurfaceFormatsKHR(m_gpu, m_surface,
-                                                     &formatCount, surfFormats);
-    Q_ASSERT(!err);
+    auto getSurfForm = [this](uint32_t *c, VkSurfaceFormatKHR* d) {
+        return fpGetPhysicalDeviceSurfaceFormatsKHR(m_gpu, m_surface, c, d);
+    };
+    auto surfFormats = getVk<VkSurfaceFormatKHR>(getSurfForm);
+    Q_ASSERT(!surfFormats.isEmpty());
+
     // If the format list includes just one entry of VK_FORMAT_UNDEFINED,
     // the surface has no preferred format.  Otherwise, at least one
     // supported format will be returned.
-    if (formatCount == 1 && surfFormats[0].format == VK_FORMAT_UNDEFINED) {
+    if (surfFormats.count() == 1 && surfFormats[0].format == VK_FORMAT_UNDEFINED) {
         m_format = VK_FORMAT_B8G8R8A8_UNORM;
     } else {
-        Q_ASSERT(formatCount >= 1);
         m_format = surfFormats[0].format;
     }
     m_color_space = surfFormats[0].colorSpace;

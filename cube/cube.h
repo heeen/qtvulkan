@@ -59,16 +59,12 @@ public:
     void set_image_layout(VkImage image, VkImageAspectFlags aspectMask, VkImageLayout old_image_layout, VkImageLayout new_image_layout, VkAccessFlagBits srcAccessMask);
     void update_data_buffer();
     void prepare_buffers();
-    void cleanup();
     bool memory_type_from_properties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex);
     void prepare_descriptor_pool();
     void prepare_descriptor_set();
     void prepare_framebuffers();
 
-    VkShaderModule prepare_shader_module(const char *code, size_t size);
-    VkShaderModule prepare_vs();
-    VkShaderModule prepare_fs();
-
+    VkShaderModule createShaderModule(QString filename);
 public slots:
     void redraw();
 
@@ -83,7 +79,7 @@ private:
     VkQueue m_queue;
     uint32_t m_graphics_queue_node_index;
     VkPhysicalDeviceProperties m_gpu_props;
-    VkQueueFamilyProperties *m_queue_props;
+    QVector<VkQueueFamilyProperties> m_queueProps;
     VkPhysicalDeviceMemoryProperties m_memory_properties;
 
     QVector<const char*> m_extensionNames;
@@ -92,9 +88,9 @@ private:
     VkFormat m_format;
     VkColorSpaceKHR m_color_space;
 
-    uint32_t m_swapchainImageCount;
     VkSwapchainKHR m_swapchain;
-    SwapchainBuffers *m_buffers;
+    QVector<SwapchainBuffers> m_buffers;
+    QVector<VkFramebuffer> m_framebuffers;  //FIXME these seem to have the same size should they be in the same vector?
 
     VkCommandPool m_cmd_pool;
 
@@ -130,13 +126,9 @@ private:
     float m_spin_increment;
     bool m_pause;
 
-    VkShaderModule m_vert_shader_module;
-    VkShaderModule m_frag_shader_module;
-
     VkDescriptorPool m_desc_pool;
     VkDescriptorSet m_desc_set;
 
-    VkFramebuffer *m_framebuffers;
 
     bool m_quit;
     int32_t m_curFrame;
@@ -149,7 +141,6 @@ private:
     PFN_vkDebugReportMessageEXT DebugReportMessage;
 
     uint32_t m_current_buffer;
-    uint32_t m_queue_count;
 
     PFN_vkGetPhysicalDeviceSurfaceSupportKHR fpGetPhysicalDeviceSurfaceSupportKHR;
     PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR fpGetPhysicalDeviceSurfaceCapabilitiesKHR;
@@ -219,8 +210,6 @@ QVector<VKTYPE> getVk(VKFUNC getter) {
     }
     return ret;
 }
-
-
 
 #endif // CUBE_H
 
