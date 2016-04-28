@@ -26,7 +26,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <assert.h>
 #include <signal.h>
 #include <QTimer>
 #include <stdarg.h>
@@ -351,7 +350,7 @@ void Demo::flush_init_cmd() {
         return;
 
     err = vkEndCommandBuffer(m_cmd);
-    assert(!err);
+    Q_ASSERT(!err);
 
     const VkCommandBuffer cmd_bufs[] = {m_cmd};
     VkFence nullFence = VK_NULL_HANDLE;
@@ -367,10 +366,10 @@ void Demo::flush_init_cmd() {
     submit_info.pSignalSemaphores = NULL;
 
     err = vkQueueSubmit(m_queue, 1, &submit_info, nullFence);
-    assert(!err);
+    Q_ASSERT(!err);
 
     err = vkQueueWaitIdle(m_queue);
-    assert(!err);
+    Q_ASSERT(!err);
 
     vkFreeCommandBuffers(m_device, m_cmd_pool, 1, cmd_bufs);
     m_cmd = VK_NULL_HANDLE;
@@ -393,7 +392,7 @@ void Demo::set_image_layout(VkImage image,
         cmd_ai.commandBufferCount = 1;
 
         err = vkAllocateCommandBuffers(m_device, &cmd_ai, &m_cmd);
-        assert(!err);
+        Q_ASSERT(!err);
 
         VkCommandBufferInheritanceInfo cmd_buf_hinfo = {};
             cmd_buf_hinfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
@@ -410,7 +409,7 @@ void Demo::set_image_layout(VkImage image,
             cmd_buf_info.flags = 0;
             cmd_buf_info.pInheritanceInfo = &cmd_buf_hinfo;
         err = vkBeginCommandBuffer(m_cmd, &cmd_buf_info);
-        assert(!err);
+        Q_ASSERT(!err);
     }
 
     VkImageMemoryBarrier image_memory_barrier = {};
@@ -495,7 +494,7 @@ void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
     VkResult U_ASSERT_ONLY err;
 
     err = vkBeginCommandBuffer(cmd_buf, &cmd_buf_info);
-    assert(!err);
+    Q_ASSERT(!err);
 
     vkCmdBeginRenderPass(cmd_buf, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -541,7 +540,7 @@ void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
                          NULL, 1, pmemory_barrier);
 
     err = vkEndCommandBuffer(cmd_buf);
-    assert(!err);
+    Q_ASSERT(!err);
 }
 
 void Demo::update_data_buffer() {
@@ -561,7 +560,7 @@ void Demo::update_data_buffer() {
     err = vkMapMemory(m_device, m_uniform_data.mem, 0,
                       m_uniform_data.mem_alloc.allocationSize, 0,
                       (void **)&pData);
-    assert(!err);
+    Q_ASSERT(!err);
 
     memcpy(pData, (const void *)MVP.data(), matrixSize);
 
@@ -581,7 +580,7 @@ void Demo::draw() {
 
     err = vkCreateSemaphore(m_device, &presentCompleteSemaphoreCreateInfo,
                             NULL, &presentCompleteSemaphore);
-    assert(!err);
+    Q_ASSERT(!err);
 
     // Get the index of the next available swapchain image:
     err = fpAcquireNextImageKHR(m_device, m_swapchain, UINT64_MAX,
@@ -599,7 +598,7 @@ void Demo::draw() {
         // swapchain is not as optimal as it could be, but the platform's
         // presentation engine will still present the image correctly.
     } else {
-        assert(!err);
+        Q_ASSERT(!err);
     }
 
     // Assume the command buffer has been run on current_buffer before so
@@ -631,7 +630,7 @@ void Demo::draw() {
     submit_info.pSignalSemaphores = NULL;
 
     err = vkQueueSubmit(m_queue, 1, &submit_info, nullFence);
-    assert(!err);
+    Q_ASSERT(!err);
 
     VkPresentInfoKHR present = {};
     present.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -652,11 +651,11 @@ void Demo::draw() {
         // swapchain is not as optimal as it could be, but the platform's
         // presentation engine will still present the image correctly.
     } else {
-        assert(!err);
+        Q_ASSERT(!err);
     }
 
     err = vkQueueWaitIdle(m_queue);
-    assert(err == VK_SUCCESS);
+    Q_ASSERT(err == VK_SUCCESS);
 
     vkDestroySemaphore(m_device, presentCompleteSemaphore, NULL);
 }
@@ -671,18 +670,18 @@ void Demo::prepare_buffers() {
     VkSurfaceCapabilitiesKHR surfCapabilities = {};
     err = fpGetPhysicalDeviceSurfaceCapabilitiesKHR(
         m_gpu, m_surface, &surfCapabilities);
-    assert(!err);
+    Q_ASSERT(!err);
 
     uint32_t presentModeCount = 0;
     err = fpGetPhysicalDeviceSurfacePresentModesKHR(
         m_gpu, m_surface, &presentModeCount, NULL);
-    assert(!err);
+    Q_ASSERT(!err);
     VkPresentModeKHR *presentModes =
         (VkPresentModeKHR *)malloc(presentModeCount * sizeof(VkPresentModeKHR));
-    assert(presentModes);
+    Q_ASSERT(presentModes);
     err = fpGetPhysicalDeviceSurfacePresentModesKHR(
         m_gpu, m_surface, &presentModeCount, presentModes);
-    assert(!err);
+    Q_ASSERT(!err);
 
     VkExtent2D swapchainExtent = {};
     // width and height are either both -1, or both not -1.
@@ -754,7 +753,7 @@ void Demo::prepare_buffers() {
     uint32_t i;
 
     err = fpCreateSwapchainKHR(m_device, &swapchain_ci, NULL, &m_swapchain);
-    assert(!err);
+    Q_ASSERT(!err);
 
     // If we just re-created an existing swapchain, we should destroy the old
     // swapchain at this point.
@@ -766,19 +765,19 @@ void Demo::prepare_buffers() {
 
     err = fpGetSwapchainImagesKHR(m_device, m_swapchain,
                                         &m_swapchainImageCount, NULL);
-    assert(!err);
+    Q_ASSERT(!err);
 
     VkImage *swapchainImages =
         (VkImage *)malloc(m_swapchainImageCount * sizeof(VkImage));
-    assert(swapchainImages);
+    Q_ASSERT(swapchainImages);
     err = fpGetSwapchainImagesKHR(m_device, m_swapchain,
                                         &m_swapchainImageCount,
                                         swapchainImages);
-    assert(!err);
+    Q_ASSERT(!err);
 
     m_buffers = (SwapchainBuffers *)malloc(sizeof(SwapchainBuffers) *
                                                m_swapchainImageCount);
-    assert(m_buffers);
+    Q_ASSERT(m_buffers);
 
     for (i = 0; i < m_swapchainImageCount; i++) {
         VkImageViewCreateInfo color_image_view = {};
@@ -814,7 +813,7 @@ void Demo::prepare_buffers() {
 
         err = vkCreateImageView(m_device, &color_image_view, NULL,
                                 &m_buffers[i].view);
-        assert(!err);
+        Q_ASSERT(!err);
     }
 
     if (NULL != presentModes) {
@@ -862,10 +861,10 @@ void Demo::prepare_depth() {
 
     /* create image */
     err = vkCreateImage(m_device, &image, NULL, &m_depth.image);
-    assert(!err);
+    Q_ASSERT(!err);
 
     vkGetImageMemoryRequirements(m_device, m_depth.image, &mem_reqs);
-    assert(!err);
+    Q_ASSERT(!err);
 
     m_depth.mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     m_depth.mem_alloc.pNext = NULL;
@@ -875,17 +874,17 @@ void Demo::prepare_depth() {
     pass = memory_type_from_properties(mem_reqs.memoryTypeBits,
                                        0, /* No requirements */
                                        &m_depth.mem_alloc.memoryTypeIndex);
-    assert(pass);
+    Q_ASSERT(pass);
 
     /* allocate memory */
     err = vkAllocateMemory(m_device, &m_depth.mem_alloc, NULL,
                            &m_depth.mem);
-    assert(!err);
+    Q_ASSERT(!err);
 
     /* bind memory */
     err =
         vkBindImageMemory(m_device, m_depth.image, m_depth.mem, 0);
-    assert(!err);
+    Q_ASSERT(!err);
 
     set_image_layout(m_depth.image, VK_IMAGE_ASPECT_DEPTH_BIT,
                           VK_IMAGE_LAYOUT_UNDEFINED,
@@ -895,7 +894,7 @@ void Demo::prepare_depth() {
     /* create image view */
     view.image = m_depth.image;
     err = vkCreateImageView(m_device, &view, NULL, &m_depth.view);
-    assert(!err);
+    Q_ASSERT(!err);
 }
 
 VkFormat QtFormat2vkFormat(QImage::Format f) {
@@ -969,7 +968,7 @@ void Demo::prepare_texture_image(const char *filename,
     VkMemoryRequirements mem_reqs;
 
     err = vkCreateImage(m_device, &image_create_info, NULL, &tex_obj->image);
-    assert(!err);
+    Q_ASSERT(!err);
 
     vkGetImageMemoryRequirements(m_device, tex_obj->image, &mem_reqs);
 
@@ -981,16 +980,16 @@ void Demo::prepare_texture_image(const char *filename,
     bool U_ASSERT_ONLY pass = memory_type_from_properties(mem_reqs.memoryTypeBits,
                                        required_props,
                                        &tex_obj->mem_alloc.memoryTypeIndex);
-    assert(pass);
+    Q_ASSERT(pass);
 
     /* allocate memory */
     err = vkAllocateMemory(m_device, &tex_obj->mem_alloc, NULL,
                            &(tex_obj->mem));
-    assert(!err);
+    Q_ASSERT(!err);
 
     /* bind memory */
     err = vkBindImageMemory(m_device, tex_obj->image, tex_obj->mem, 0);
-    assert(!err);
+    Q_ASSERT(!err);
 
     if (required_props & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
         VkImageSubresource subres = {};
@@ -1006,7 +1005,7 @@ void Demo::prepare_texture_image(const char *filename,
 
         err = vkMapMemory(m_device, tex_obj->mem, 0,
                           tex_obj->mem_alloc.allocationSize, 0, &data);
-        assert(!err);
+        Q_ASSERT(!err);
 
         memcpy(data, img.bits(), img.byteCount() ); // FIXME - in place decoding wanted
 
@@ -1101,7 +1100,7 @@ void Demo::prepare_textures() {
             destroy_texture_image(&staging_texture);
         } else {
             /* Can't support VK_FORMAT_R8G8B8A8_UNORM !? */
-            assert(!"No support for R8G8B8A8_UNORM as texture image format");
+            Q_ASSERT(!"No support for R8G8B8A8_UNORM as texture image format");
         }
 
         VkSamplerCreateInfo sampler = {};
@@ -1140,13 +1139,13 @@ void Demo::prepare_textures() {
         /* create sampler */
         err = vkCreateSampler(m_device, &sampler, NULL,
                               &m_textures[i].sampler);
-        assert(!err);
+        Q_ASSERT(!err);
 
         /* create image view */
         view.image = m_textures[i].image;
         err = vkCreateImageView(m_device, &view, NULL,
                                 &m_textures[i].view);
-        assert(!err);
+        Q_ASSERT(!err);
     }
 }
 
@@ -1183,7 +1182,7 @@ void Demo::prepare_cube_data_buffer() {
     buf_info.size = sizeof(data);
     err =
         vkCreateBuffer(m_device, &buf_info, NULL, &m_uniform_data.buf);
-    assert(!err);
+    Q_ASSERT(!err);
 
     vkGetBufferMemoryRequirements(m_device, m_uniform_data.buf,
                                   &mem_reqs);
@@ -1196,16 +1195,16 @@ void Demo::prepare_cube_data_buffer() {
     pass = memory_type_from_properties(
         mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
         &m_uniform_data.mem_alloc.memoryTypeIndex);
-    assert(pass);
+    Q_ASSERT(pass);
 
     err = vkAllocateMemory(m_device, &m_uniform_data.mem_alloc, NULL,
                            &(m_uniform_data.mem));
-    assert(!err);
+    Q_ASSERT(!err);
 
     err = vkMapMemory(m_device, m_uniform_data.mem, 0,
                       m_uniform_data.mem_alloc.allocationSize, 0,
                       (void **)&pData);
-    assert(!err);
+    Q_ASSERT(!err);
 
     memcpy(pData, &data, sizeof data);
 
@@ -1213,7 +1212,7 @@ void Demo::prepare_cube_data_buffer() {
 
     err = vkBindBufferMemory(m_device, m_uniform_data.buf,
                              m_uniform_data.mem, 0);
-    assert(!err);
+    Q_ASSERT(!err);
 
     m_uniform_data.buffer_info.buffer = m_uniform_data.buf;
     m_uniform_data.buffer_info.offset = 0;
@@ -1245,7 +1244,7 @@ void Demo::prepare_descriptor_layout() {
 
     err = vkCreateDescriptorSetLayout(m_device, &descriptor_layout, NULL,
                                       &m_desc_layout);
-    assert(!err);
+    Q_ASSERT(!err);
 
     VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = {};
         pPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -1255,7 +1254,7 @@ void Demo::prepare_descriptor_layout() {
 
     err = vkCreatePipelineLayout(m_device, &pPipelineLayoutCreateInfo, NULL,
                                  &m_pipeline_layout);
-    assert(!err);
+    Q_ASSERT(!err);
 }
 
 void Demo::prepare_render_pass() {
@@ -1312,7 +1311,7 @@ void Demo::prepare_render_pass() {
     VkResult U_ASSERT_ONLY err;
 
     err = vkCreateRenderPass(m_device, &rp_info, NULL, &m_render_pass);
-    assert(!err);
+    Q_ASSERT(!err);
 }
 
 VkShaderModule Demo::prepare_shader_module(const char *code, size_t size) {
@@ -1329,7 +1328,7 @@ VkShaderModule Demo::prepare_shader_module(const char *code, size_t size) {
     moduleCreateInfo.pCode = (uint32_t*)code;
     moduleCreateInfo.flags = 0;
     err = vkCreateShaderModule(m_device, &moduleCreateInfo, NULL, &module);
-    assert(!err);
+    Q_ASSERT(!err);
 
     return module;
 }
@@ -1350,7 +1349,7 @@ char *demo_read_spv(const char *filename, size_t *psize) {
 
     shader_code = (char*)malloc(size);
     retval = fread(shader_code, size, 1, fp);
-    assert(retval == 1);
+    Q_ASSERT(retval == 1);
 
     *psize = size;
 
@@ -1366,7 +1365,7 @@ VkShaderModule Demo::prepare_vs() {
 
     vertShaderCode = demo_read_spv("cube-vert.spv", &size);
 
-    assert(vertShaderCode);
+    Q_ASSERT(vertShaderCode);
     m_vert_shader_module =
         prepare_shader_module(vertShaderCode, size);
 
@@ -1382,7 +1381,7 @@ VkShaderModule Demo::prepare_fs() {
     size_t size;
 
     fragShaderCode = demo_read_spv("cube-frag.spv", &size);
-    assert(fragShaderCode);
+    Q_ASSERT(fragShaderCode);
     m_frag_shader_module =
         prepare_shader_module(fragShaderCode, size);
 
@@ -1486,7 +1485,7 @@ void Demo::prepare_pipeline() {
     pipelineCache_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
 
     err = vkCreatePipelineCache(m_device, &pipelineCache_ci, NULL, &m_pipelineCache);
-    assert(!err);
+    Q_ASSERT(!err);
 
     pipeline_ci.pVertexInputState = &vi;
     pipeline_ci.pInputAssemblyState = &ia;
@@ -1503,7 +1502,7 @@ void Demo::prepare_pipeline() {
 
     err = vkCreateGraphicsPipelines(m_device, m_pipelineCache, 1,
                                     &pipeline_ci, NULL, &m_pipeline);
-    assert(!err);
+    Q_ASSERT(!err);
 
     vkDestroyShaderModule(m_device, m_frag_shader_module, NULL);
     vkDestroyShaderModule(m_device, m_vert_shader_module, NULL);
@@ -1529,7 +1528,7 @@ void Demo::prepare_descriptor_pool() {
 
     err = vkCreateDescriptorPool(m_device, &descriptor_pool, NULL,
                                  &m_desc_pool);
-    assert(!err);
+    Q_ASSERT(!err);
 }
 
 void Demo::prepare_descriptor_set() {
@@ -1548,7 +1547,7 @@ void Demo::prepare_descriptor_set() {
     alloc_info.pSetLayouts = &m_desc_layout;
 
     err = vkAllocateDescriptorSets(m_device, &alloc_info, &m_desc_set);
-    assert(!err);
+    Q_ASSERT(!err);
 
     memset(&tex_descs, 0, sizeof(tex_descs));
     for (i = 0; i < DEMO_TEXTURE_COUNT; i++) {
@@ -1596,13 +1595,13 @@ void Demo::prepare_framebuffers() {
 
     m_framebuffers = (VkFramebuffer *)malloc(m_swapchainImageCount *
                                                  sizeof(VkFramebuffer));
-    assert(m_framebuffers);
+    Q_ASSERT(m_framebuffers);
 
     for (i = 0; i < m_swapchainImageCount; i++) {
         attachments[0] = m_buffers[i].view;
         err = vkCreateFramebuffer(m_device, &fb_info, NULL,
                                   &m_framebuffers[i]);
-        assert(!err);
+        Q_ASSERT(!err);
     }
 }
 
@@ -1636,7 +1635,7 @@ void Demo::prepare() {
 
     err = vkCreateCommandPool(m_device, &cmd_pool_info, NULL,
                               &m_cmd_pool);
-    assert(!err);
+    Q_ASSERT(!err);
 
     VkCommandBufferAllocateInfo cmd = {};
     cmd.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -1657,7 +1656,7 @@ void Demo::prepare() {
     for (uint32_t i = 0; i < m_swapchainImageCount; i++) {
         err =
             vkAllocateCommandBuffers(m_device, &cmd, &m_buffers[i].cmd);
-        assert(!err);
+        Q_ASSERT(!err);
     }
 
     prepare_descriptor_pool();
@@ -1848,7 +1847,7 @@ void Demo::init_vk() {
     if (m_validate) {
         qDebug()<<"enabling validation";
         err = vkEnumerateInstanceLayerProperties(&instance_layer_count, NULL);
-        assert(!err);
+        Q_ASSERT(!err);
 
         instance_validation_layers = instance_validation_layers_alt1;
         if (instance_layer_count > 0) {
@@ -1856,7 +1855,7 @@ void Demo::init_vk() {
                     (VkLayerProperties*) malloc(sizeof (VkLayerProperties) * instance_layer_count);
             err = vkEnumerateInstanceLayerProperties(&instance_layer_count,
                     instance_layers);
-            assert(!err);
+            Q_ASSERT(!err);
 
 
             validation_found = check_layers(
@@ -1901,14 +1900,14 @@ void Demo::init_vk() {
 
     err = vkEnumerateInstanceExtensionProperties(
         NULL, &instance_extension_count, NULL);
-    assert(!err);
+    Q_ASSERT(!err);
 
     if (instance_extension_count > 0) {
         VkExtensionProperties *instance_extensions =
             (VkExtensionProperties*) malloc(sizeof(VkExtensionProperties) * instance_extension_count);
         err = vkEnumerateInstanceExtensionProperties(
             NULL, &instance_extension_count, instance_extensions);
-        assert(!err);
+        Q_ASSERT(!err);
         for (uint32_t i = 0; i < instance_extension_count; i++) {
             if (!strcmp(VK_KHR_SURFACE_EXTENSION_NAME,
                         instance_extensions[i].extensionName)) {
@@ -1929,7 +1928,7 @@ void Demo::init_vk() {
                         VK_EXT_DEBUG_REPORT_EXTENSION_NAME;
                 }
             }
-            assert(m_enabled_extension_count < 64);
+            Q_ASSERT(m_enabled_extension_count < 64);
         }
 
         free(instance_extensions);
@@ -2009,12 +2008,12 @@ void Demo::init_vk() {
 
     /* Make initial call to query gpu_count, then second call for gpu info*/
     err = vkEnumeratePhysicalDevices(m_inst, &gpu_count, NULL);
-    assert(!err && gpu_count > 0);
+    Q_ASSERT(!err && gpu_count > 0);
 
     if (gpu_count > 0) {
         VkPhysicalDevice *physical_devices = (VkPhysicalDevice*)malloc(sizeof(VkPhysicalDevice) * gpu_count);
         err = vkEnumeratePhysicalDevices(m_inst, &gpu_count, physical_devices);
-        assert(!err);
+        Q_ASSERT(!err);
         /* For cube demo we just grab the first physical device */
         m_gpu = physical_devices[0];
         free(physical_devices);
@@ -2032,14 +2031,14 @@ void Demo::init_vk() {
     uint32_t device_layer_count = 0;
     err =
         vkEnumerateDeviceLayerProperties(m_gpu, &device_layer_count, NULL);
-    assert(!err);
+    Q_ASSERT(!err);
 
     if (device_layer_count > 0) {
         VkLayerProperties *device_layers =
             (VkLayerProperties*)malloc(sizeof(VkLayerProperties) * device_layer_count);
         err = vkEnumerateDeviceLayerProperties(m_gpu, &device_layer_count,
                                                device_layers);
-        assert(!err);
+        Q_ASSERT(!err);
 
         if (m_validate) {
             validation_found = check_layers(device_validation_layer_count,
@@ -2068,14 +2067,14 @@ void Demo::init_vk() {
 
     err = vkEnumerateDeviceExtensionProperties(m_gpu, NULL,
                                                &device_extension_count, NULL);
-    assert(!err);
+    Q_ASSERT(!err);
 
     if (device_extension_count > 0) {
         VkExtensionProperties *device_extensions =
             (VkExtensionProperties*)malloc(sizeof(VkExtensionProperties) * device_extension_count);
         err = vkEnumerateDeviceExtensionProperties(
             m_gpu, NULL, &device_extension_count, device_extensions);
-        assert(!err);
+        Q_ASSERT(!err);
 
         for (uint32_t i = 0; i < device_extension_count; i++) {
             if (!strcmp(VK_KHR_SWAPCHAIN_EXTENSION_NAME,
@@ -2084,7 +2083,7 @@ void Demo::init_vk() {
                 m_extension_names[m_enabled_extension_count++] =
                     VK_KHR_SWAPCHAIN_EXTENSION_NAME;
             }
-            assert(m_enabled_extension_count < 64);
+            Q_ASSERT(m_enabled_extension_count < 64);
         }
 
         free(device_extensions);
@@ -2155,7 +2154,7 @@ void Demo::init_vk() {
     /* Call with NULL data to get count */
     vkGetPhysicalDeviceQueueFamilyProperties(m_gpu, &m_queue_count,
                                              NULL);
-    assert(m_queue_count >= 1);
+    Q_ASSERT(m_queue_count >= 1);
 
     m_queue_props = (VkQueueFamilyProperties *)malloc(
         m_queue_count * sizeof(VkQueueFamilyProperties));
@@ -2168,7 +2167,7 @@ void Demo::init_vk() {
         if (m_queue_props[gfx_queue_idx].queueFlags & VK_QUEUE_GRAPHICS_BIT)
             break;
     }
-    assert(gfx_queue_idx < m_queue_count);
+    Q_ASSERT(gfx_queue_idx < m_queue_count);
     // Query fine-grained feature support for this device.
     //  If app has specific feature requirements it should check supported
     //  features based on this query
@@ -2210,7 +2209,7 @@ void Demo::create_device() {
             NULL; // If specific features are required, pass them in here
 
     err = vkCreateDevice(m_gpu, &device_ci, NULL, &m_device);
-    assert(!err);
+    Q_ASSERT(!err);
 }
 
 void Demo::init_vk_swapchain() {
@@ -2250,7 +2249,7 @@ void Demo::init_vk_swapchain() {
     err = vkCreateXcbSurfaceKHR(m_inst, &createInfo, NULL, &m_surface);
 
 #endif // _WIN32
-    assert(!err);
+    Q_ASSERT(!err);
 
     // Iterate over each queue to learn whether it supports presenting:
     VkBool32 *supportsPresent =
@@ -2322,20 +2321,20 @@ void Demo::init_vk_swapchain() {
     // Get the list of VkFormat's that are supported:
     uint32_t formatCount;
     err = fpGetPhysicalDeviceSurfaceFormatsKHR(m_gpu, m_surface, &formatCount, NULL);
-    assert(formatCount);
-    assert(!err);
+    Q_ASSERT(formatCount);
+    Q_ASSERT(!err);
     VkSurfaceFormatKHR *surfFormats =
         (VkSurfaceFormatKHR *)malloc(formatCount * sizeof(VkSurfaceFormatKHR));
     err = fpGetPhysicalDeviceSurfaceFormatsKHR(m_gpu, m_surface,
                                                      &formatCount, surfFormats);
-    assert(!err);
+    Q_ASSERT(!err);
     // If the format list includes just one entry of VK_FORMAT_UNDEFINED,
     // the surface has no preferred format.  Otherwise, at least one
     // supported format will be returned.
     if (formatCount == 1 && surfFormats[0].format == VK_FORMAT_UNDEFINED) {
         m_format = VK_FORMAT_B8G8R8A8_UNORM;
     } else {
-        assert(formatCount >= 1);
+        Q_ASSERT(formatCount >= 1);
         m_format = surfFormats[0].format;
     }
     m_color_space = surfFormats[0].colorSpace;
