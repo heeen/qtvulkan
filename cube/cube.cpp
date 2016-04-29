@@ -654,7 +654,6 @@ void Demo::prepare_buffers() {
         m_gpu, m_surface, &surfCapabilities);
     Q_ASSERT(!err);
 
-    uint32_t presentModeCount = 0;
     auto getPresModes = [this](uint32_t* c, VkPresentModeKHR* d) {
             return fpGetPhysicalDeviceSurfacePresentModesKHR(m_gpu, m_surface, c, d);
     };
@@ -678,14 +677,14 @@ void Demo::prepare_buffers() {
     // and is fastest (though it tears).  If not, fall back to FIFO which is
     // always available.
     VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
-    for (uint32_t i = 0; i < presentModeCount; i++) {
-        if (presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
-            swapchainPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+    for (auto mode: presentModes) {
+        if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+            swapchainPresentMode = mode;
             break;
         }
         if ((swapchainPresentMode != VK_PRESENT_MODE_MAILBOX_KHR) &&
-            (presentModes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR)) {
-            swapchainPresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+            (mode == VK_PRESENT_MODE_IMMEDIATE_KHR)) {
+            swapchainPresentMode = mode;
         }
     }
 
