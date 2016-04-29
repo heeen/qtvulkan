@@ -1620,8 +1620,8 @@ void Demo::resize_vk() {
 bool Demo::containsAllLayers(const QVector<VkLayerProperties> haystack, const QVulkanNames needles) {
     DEBUG_ENTRY;
     bool found;
-    foreach(auto needle, needles) {
-        foreach(auto candidate, haystack) {
+    for (auto needle: needles) {
+        for (auto candidate: haystack) {
             if(strcmp(candidate.layerName , needle) == 0) {
                 found = true;
                 break;
@@ -1694,7 +1694,7 @@ void Demo::init_vk() {
         qFatal("could not find any instance extensions");
     }
 
-    foreach (const auto& ext, instanceExtensions) {
+    for (const auto& ext: instanceExtensions) {
         qDebug()<< "instance extension:" << ext.extensionName;
         if (!strcmp(ext.extensionName, VK_KHR_SURFACE_EXTENSION_NAME)) {
             surfaceExtFound = 1;
@@ -1823,7 +1823,7 @@ void Demo::init_vk() {
         qFatal("no device extensions found!");
     }
 
-    foreach (const auto& ext, deviceExtensions) {
+    for (const auto& ext: deviceExtensions) {
         qDebug()<<"device extension"<<ext.extensionName;
         if (!strcmp(ext.extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME)) {
             swapchainExtFound = 1;

@@ -204,7 +204,7 @@ private:
 
 QStringList layerNames(QVector<VkLayerProperties> layers) {
     QStringList names;
-    foreach(const auto& l, layers) names << l.layerName;
+    for(const auto& l: layers) names << l.layerName;
     return names;
 }
 
