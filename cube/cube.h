@@ -80,17 +80,17 @@ private:
     Demo(const Demo&) = delete;
     Demo operator=(const Demo&) = delete;
 
-    VkSurfaceKHR m_surface      {0};
+    VkSurfaceKHR m_surface      { nullptr };
     bool m_prepared             { false };
     bool m_use_staging_buffer   { false };
 
-    VkInstance m_inst       {0};
-    VkPhysicalDevice m_gpu  {0};
-    VkDevice m_device       {0};
-    VkQueue m_queue         {0};
+    VkInstance m_inst       {nullptr};
+    VkPhysicalDevice m_gpu  {nullptr};
+    VkDevice m_device       {nullptr};
+    VkQueue m_queue         {nullptr};
     uint32_t m_graphics_queue_node_index                    {0};
     VkPhysicalDeviceProperties m_gpu_props                  {};
-    QVector<VkQueueFamilyProperties> m_queueProps           {0};
+    QVector<VkQueueFamilyProperties> m_queueProps           {};
     VkPhysicalDeviceMemoryProperties m_memory_properties    {};
 
     QVector<const char*> m_extensionNames           {};
@@ -99,12 +99,12 @@ private:
     VkFormat m_format               {};
     VkColorSpaceKHR m_color_space   {};
 
-    VkSwapchainKHR m_swapchain {0};
+    VkSwapchainKHR m_swapchain {nullptr};
     QVector<SwapchainBuffers> m_buffers     {};
     //FIXME these seem to have the same size should they be in the same vector?
     QVector<VkFramebuffer> m_framebuffers   {};
 
-    VkCommandPool m_cmd_pool  {0};
+    VkCommandPool m_cmd_pool  {nullptr};
 
     struct {
         VkFormat format;
@@ -124,12 +124,12 @@ private:
     } m_uniform_data  {};
 
      // Buffer for initialization commands
-    VkCommandBuffer m_cmd               {0};
-    VkPipelineLayout m_pipeline_layout  {0};
-    VkDescriptorSetLayout m_desc_layout {0};
-    VkPipelineCache m_pipelineCache     {0};
-    VkRenderPass m_render_pass          {0};
-    VkPipeline m_pipeline               {0};
+    VkCommandBuffer m_cmd               {nullptr};
+    VkPipelineLayout m_pipeline_layout  {nullptr};
+    VkDescriptorSetLayout m_desc_layout {nullptr};
+    VkPipelineCache m_pipelineCache     {nullptr};
+    VkRenderPass m_render_pass          {nullptr};
+    VkPipeline m_pipeline               {nullptr};
     uint32_t m_current_buffer           {0};
 
     QMatrix4x4 m_projection_matrix  {};
@@ -140,8 +140,8 @@ private:
     float m_spin_increment  {0.1f};
     bool m_pause {false};
 
-    VkDescriptorPool m_desc_pool  {0};
-    VkDescriptorSet m_desc_set  {0};
+    VkDescriptorPool m_desc_pool  {nullptr};
+    VkDescriptorSet m_desc_set  {nullptr};
 
 
     bool m_quit { false };
@@ -149,21 +149,21 @@ private:
     int32_t m_frameCount  {INT32_MAX};
     bool m_validate { true };
     bool m_use_break { false };
-    PFN_vkCreateDebugReportCallbackEXT CreateDebugReportCallback  {0};
-    PFN_vkDestroyDebugReportCallbackEXT DestroyDebugReportCallback  {0};
-    VkDebugReportCallbackEXT msg_callback           {0};
-    PFN_vkDebugReportMessageEXT DebugReportMessage  {0};
+    PFN_vkCreateDebugReportCallbackEXT CreateDebugReportCallback  {nullptr};
+    PFN_vkDestroyDebugReportCallbackEXT DestroyDebugReportCallback  {nullptr};
+    VkDebugReportCallbackEXT msg_callback           {nullptr};
+    PFN_vkDebugReportMessageEXT DebugReportMessage  {nullptr};
 
 
-    PFN_vkGetPhysicalDeviceSurfaceSupportKHR fpGetPhysicalDeviceSurfaceSupportKHR           {0};
-    PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR fpGetPhysicalDeviceSurfaceCapabilitiesKHR {0};
-    PFN_vkGetPhysicalDeviceSurfaceFormatsKHR fpGetPhysicalDeviceSurfaceFormatsKHR           {0};
-    PFN_vkGetPhysicalDeviceSurfacePresentModesKHR fpGetPhysicalDeviceSurfacePresentModesKHR {0};
-    PFN_vkCreateSwapchainKHR fpCreateSwapchainKHR       {0};
-    PFN_vkDestroySwapchainKHR fpDestroySwapchainKHR     {0};
-    PFN_vkGetSwapchainImagesKHR fpGetSwapchainImagesKHR {0};
-    PFN_vkAcquireNextImageKHR fpAcquireNextImageKHR     {0};
-    PFN_vkQueuePresentKHR fpQueuePresentKHR             {0};
+    PFN_vkGetPhysicalDeviceSurfaceSupportKHR fpGetPhysicalDeviceSurfaceSupportKHR           {nullptr};
+    PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR fpGetPhysicalDeviceSurfaceCapabilitiesKHR {nullptr};
+    PFN_vkGetPhysicalDeviceSurfaceFormatsKHR fpGetPhysicalDeviceSurfaceFormatsKHR           {nullptr};
+    PFN_vkGetPhysicalDeviceSurfacePresentModesKHR fpGetPhysicalDeviceSurfacePresentModesKHR {nullptr};
+    PFN_vkCreateSwapchainKHR fpCreateSwapchainKHR       {nullptr};
+    PFN_vkDestroySwapchainKHR fpDestroySwapchainKHR     {nullptr};
+    PFN_vkGetSwapchainImagesKHR fpGetSwapchainImagesKHR {nullptr};
+    PFN_vkAcquireNextImageKHR fpAcquireNextImageKHR     {nullptr};
+    PFN_vkQueuePresentKHR fpQueuePresentKHR             {nullptr};
 
     QElapsedTimer m_fpsTimer {};
 };

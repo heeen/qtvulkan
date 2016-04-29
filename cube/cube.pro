@@ -10,7 +10,7 @@ QMAKE_CXXFLAGS += -g -O -Wall -Weffc++ -pedantic  \
     -Wfloat-equal  -Wformat  -Wformat=2 \
     -Wformat-nonliteral -Wformat-security  \
     -Wformat-y2k \
-    -Wimplicit  -Wimport  -Winit-self  -Winline \
+    -Wimport  -Winit-self  -Winline \
     -Winvalid-pch   \
     -Wunsafe-loop-optimizations  -Wlong-long -Wmissing-braces \
     -Wmissing-field-initializers -Wmissing-format-attribute   \
@@ -24,6 +24,8 @@ QMAKE_CXXFLAGS += -g -O -Wall -Weffc++ -pedantic  \
     -Wunused-function  -Wunused-label  -Wunused-parameter \
     -Wunused-value  -Wunused-variable  -Wvariadic-macros \
     -Wvolatile-register-var  -Wwrite-strings \
+    -Wzero-as-null-pointer-constant \
+    -Wsuggest-final-types  -Wsuggest-final-methods -Wsuggest-override \
     -Werror
 
 # -Wswitch-enum

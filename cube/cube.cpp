@@ -38,7 +38,7 @@
 #include <QtMath>
 #include <qpa/qplatformnativeinterface.h>
 
-static PFN_vkGetDeviceProcAddr g_gdpa = NULL;
+static PFN_vkGetDeviceProcAddr g_gdpa = nullptr;
 
 static const char *tex_files[] = {"lunarg.ppm"};
 
@@ -224,7 +224,7 @@ uint32_t ScopeDebug::stack = 0;
 #endif
 
 int main(int argc, char **argv) {
-    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stdout, nullptr, _IONBF, 0);
     DEBUG_ENTRY;
     QGuiApplication app(argc, argv);
     Demo demo;
@@ -264,44 +264,44 @@ Demo::~Demo()
     m_prepared = false;
 
     for (int i = 0; i < m_framebuffers.count(); i++) {
-        vkDestroyFramebuffer(m_device, m_framebuffers[i], NULL);
+        vkDestroyFramebuffer(m_device, m_framebuffers[i], nullptr);
     }
-    vkDestroyDescriptorPool(m_device, m_desc_pool, NULL);
+    vkDestroyDescriptorPool(m_device, m_desc_pool, nullptr);
 
-    vkDestroyPipeline(m_device, m_pipeline, NULL);
-    vkDestroyPipelineCache(m_device, m_pipelineCache, NULL);
-    vkDestroyRenderPass(m_device, m_render_pass, NULL);
-    vkDestroyPipelineLayout(m_device, m_pipeline_layout, NULL);
-    vkDestroyDescriptorSetLayout(m_device, m_desc_layout, NULL);
+    vkDestroyPipeline(m_device, m_pipeline, nullptr);
+    vkDestroyPipelineCache(m_device, m_pipelineCache, nullptr);
+    vkDestroyRenderPass(m_device, m_render_pass, nullptr);
+    vkDestroyPipelineLayout(m_device, m_pipeline_layout, nullptr);
+    vkDestroyDescriptorSetLayout(m_device, m_desc_layout, nullptr);
 
     for (int i = 0; i < DEMO_TEXTURE_COUNT; i++) {
-        vkDestroyImageView(m_device, m_textures[i].view, NULL);
-        vkDestroyImage(m_device, m_textures[i].image, NULL);
-        vkFreeMemory(m_device, m_textures[i].mem, NULL);
-        vkDestroySampler(m_device, m_textures[i].sampler, NULL);
+        vkDestroyImageView(m_device, m_textures[i].view, nullptr);
+        vkDestroyImage(m_device, m_textures[i].image, nullptr);
+        vkFreeMemory(m_device, m_textures[i].mem, nullptr);
+        vkDestroySampler(m_device, m_textures[i].sampler, nullptr);
     }
-    fpDestroySwapchainKHR(m_device, m_swapchain, NULL);
+    fpDestroySwapchainKHR(m_device, m_swapchain, nullptr);
 
-    vkDestroyImageView(m_device, m_depth.view, NULL);
-    vkDestroyImage(m_device, m_depth.image, NULL);
-    vkFreeMemory(m_device, m_depth.mem, NULL);
+    vkDestroyImageView(m_device, m_depth.view, nullptr);
+    vkDestroyImage(m_device, m_depth.image, nullptr);
+    vkFreeMemory(m_device, m_depth.mem, nullptr);
 
-    vkDestroyBuffer(m_device, m_uniform_data.buf, NULL);
-    vkFreeMemory(m_device, m_uniform_data.mem, NULL);
+    vkDestroyBuffer(m_device, m_uniform_data.buf, nullptr);
+    vkFreeMemory(m_device, m_uniform_data.mem, nullptr);
 
     for (int i = 0; i < m_buffers.count(); i++) {
-        vkDestroyImageView(m_device, m_buffers[i].view, NULL);
+        vkDestroyImageView(m_device, m_buffers[i].view, nullptr);
         vkFreeCommandBuffers(m_device, m_cmd_pool, 1, &m_buffers[i].cmd);
     }
 
-    vkDestroyCommandPool(m_device, m_cmd_pool, NULL);
+    vkDestroyCommandPool(m_device, m_cmd_pool, nullptr);
 
-    vkDestroyDevice(m_device, NULL);
+    vkDestroyDevice(m_device, nullptr);
     if (m_validate) {
-        DestroyDebugReportCallback(m_inst, msg_callback, NULL);
+        DestroyDebugReportCallback(m_inst, msg_callback, nullptr);
     }
-    vkDestroySurfaceKHR(m_inst, m_surface, NULL);
-    vkDestroyInstance(m_inst, NULL);
+    vkDestroySurfaceKHR(m_inst, m_surface, nullptr);
+    vkDestroyInstance(m_inst, nullptr);
 }
 
 bool Demo::memory_type_from_properties(uint32_t typeBits,
@@ -330,24 +330,24 @@ void Demo::flush_init_cmd() {
 
     VkResult U_ASSERT_ONLY err;
 
-    if (m_cmd == VK_NULL_HANDLE)
+    if (m_cmd == nullptr)
         return;
 
     err = vkEndCommandBuffer(m_cmd);
     Q_ASSERT(!err);
 
     const VkCommandBuffer cmd_bufs[] = {m_cmd};
-    VkFence nullFence = VK_NULL_HANDLE;
+    VkFence nullFence = nullptr;
     VkSubmitInfo submit_info = {};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submit_info.pNext = NULL;
+    submit_info.pNext = nullptr;
     submit_info.waitSemaphoreCount = 0;
-    submit_info.pWaitSemaphores = NULL;
-    submit_info.pWaitDstStageMask = NULL;
+    submit_info.pWaitSemaphores = nullptr;
+    submit_info.pWaitDstStageMask = nullptr;
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers = cmd_bufs;
     submit_info.signalSemaphoreCount = 0;
-    submit_info.pSignalSemaphores = NULL;
+    submit_info.pSignalSemaphores = nullptr;
 
     err = vkQueueSubmit(m_queue, 1, &submit_info, nullFence);
     Q_ASSERT(!err);
@@ -356,7 +356,7 @@ void Demo::flush_init_cmd() {
     Q_ASSERT(!err);
 
     vkFreeCommandBuffers(m_device, m_cmd_pool, 1, cmd_bufs);
-    m_cmd = VK_NULL_HANDLE;
+    m_cmd = nullptr;
 }
 
 void Demo::set_image_layout(VkImage image,
@@ -367,10 +367,10 @@ void Demo::set_image_layout(VkImage image,
     DEBUG_ENTRY;
     VkResult U_ASSERT_ONLY err;
 
-    if (m_cmd == VK_NULL_HANDLE) {
+    if (m_cmd == nullptr) {
         VkCommandBufferAllocateInfo cmd_ai = {};
         cmd_ai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        cmd_ai.pNext = NULL;
+        cmd_ai.pNext = nullptr;
         cmd_ai.commandPool = m_cmd_pool;
         cmd_ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         cmd_ai.commandBufferCount = 1;
@@ -380,16 +380,16 @@ void Demo::set_image_layout(VkImage image,
 
         VkCommandBufferInheritanceInfo cmd_buf_hinfo = {};
             cmd_buf_hinfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
-            cmd_buf_hinfo.pNext = NULL;
-            cmd_buf_hinfo.renderPass = VK_NULL_HANDLE;
+            cmd_buf_hinfo.pNext = nullptr;
+            cmd_buf_hinfo.renderPass = nullptr;
             cmd_buf_hinfo.subpass = 0;
-            cmd_buf_hinfo.framebuffer = VK_NULL_HANDLE;
+            cmd_buf_hinfo.framebuffer = nullptr;
             cmd_buf_hinfo.occlusionQueryEnable = VK_FALSE;
             cmd_buf_hinfo.queryFlags = 0;
             cmd_buf_hinfo.pipelineStatistics = 0;
         VkCommandBufferBeginInfo cmd_buf_info = {};
             cmd_buf_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-            cmd_buf_info.pNext = NULL;
+            cmd_buf_info.pNext = nullptr;
             cmd_buf_info.flags = 0;
             cmd_buf_info.pInheritanceInfo = &cmd_buf_hinfo;
         err = vkBeginCommandBuffer(m_cmd, &cmd_buf_info);
@@ -398,7 +398,7 @@ void Demo::set_image_layout(VkImage image,
 
     VkImageMemoryBarrier image_memory_barrier = {};
         image_memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        image_memory_barrier.pNext = NULL;
+        image_memory_barrier.pNext = nullptr;
         image_memory_barrier.srcAccessMask = srcAccessMask;
         image_memory_barrier.dstAccessMask = 0;
         image_memory_barrier.oldLayout = old_image_layout;
@@ -432,8 +432,8 @@ void Demo::set_image_layout(VkImage image,
     VkPipelineStageFlags src_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     VkPipelineStageFlags dest_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 
-    vkCmdPipelineBarrier(m_cmd, src_stages, dest_stages, 0, 0, NULL, 0,
-                         NULL, 1, pmemory_barrier);
+    vkCmdPipelineBarrier(m_cmd, src_stages, dest_stages, 0, 0, nullptr, 0,
+                         nullptr, 1, pmemory_barrier);
 }
 
 void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
@@ -441,17 +441,17 @@ void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
 
     VkCommandBufferInheritanceInfo cmd_buf_hinfo = {};
         cmd_buf_hinfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
-        cmd_buf_hinfo.pNext = NULL;
-        cmd_buf_hinfo.renderPass = VK_NULL_HANDLE;
+        cmd_buf_hinfo.pNext = nullptr;
+        cmd_buf_hinfo.renderPass = nullptr;
         cmd_buf_hinfo.subpass = 0;
-        cmd_buf_hinfo.framebuffer = VK_NULL_HANDLE;
+        cmd_buf_hinfo.framebuffer = nullptr;
         cmd_buf_hinfo.occlusionQueryEnable = VK_FALSE;
         cmd_buf_hinfo.queryFlags = 0;
         cmd_buf_hinfo.pipelineStatistics = 0;
 
     VkCommandBufferBeginInfo cmd_buf_info = {};
     cmd_buf_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    cmd_buf_info.pNext = NULL;
+    cmd_buf_info.pNext = nullptr;
     cmd_buf_info.flags = 0;
     cmd_buf_info.pInheritanceInfo = &cmd_buf_hinfo;
 
@@ -465,7 +465,7 @@ void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
 
     VkRenderPassBeginInfo rp_begin = {};
     rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    rp_begin.pNext = NULL;
+    rp_begin.pNext = nullptr;
     rp_begin.renderPass = m_render_pass;
     rp_begin.framebuffer = m_framebuffers[m_current_buffer];
     rp_begin.renderArea.offset.x = 0;
@@ -485,7 +485,7 @@ void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
     vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
     vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             m_pipeline_layout, 0, 1, &m_desc_set, 0,
-                            NULL);
+                            nullptr);
 
     VkViewport viewport = {};
     viewport.height = (float)height();
@@ -506,7 +506,7 @@ void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
 
     VkImageMemoryBarrier prePresentBarrier = {};
     prePresentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    prePresentBarrier.pNext = NULL;
+    prePresentBarrier.pNext = nullptr;
     prePresentBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     prePresentBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
     prePresentBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -518,8 +518,8 @@ void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
     prePresentBarrier.image = m_buffers[m_current_buffer].image;
     VkImageMemoryBarrier *pmemory_barrier = &prePresentBarrier;
     vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, NULL, 0,
-                         NULL, 1, pmemory_barrier);
+                         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0,
+                         nullptr, 1, pmemory_barrier);
 
     err = vkEndCommandBuffer(cmd_buf);
     Q_ASSERT(!err);
@@ -552,29 +552,29 @@ void Demo::update_data_buffer() {
 void Demo::draw() {
     DEBUG_ENTRY;
     VkResult U_ASSERT_ONLY err;
-    VkSemaphore presentCompleteSemaphore = 0;
+    VkSemaphore presentCompleteSemaphore = nullptr;
     VkSemaphoreCreateInfo presentCompleteSemaphoreCreateInfo = {};
     presentCompleteSemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    presentCompleteSemaphoreCreateInfo.pNext = NULL;
+    presentCompleteSemaphoreCreateInfo.pNext = nullptr;
     presentCompleteSemaphoreCreateInfo.flags = 0;
 
-    VkFence nullFence = VK_NULL_HANDLE;
+    VkFence nullFence = nullptr;
 
     err = vkCreateSemaphore(m_device, &presentCompleteSemaphoreCreateInfo,
-                            NULL, &presentCompleteSemaphore);
+                            nullptr, &presentCompleteSemaphore);
     Q_ASSERT(!err);
 
     // Get the index of the next available swapchain image:
     err = fpAcquireNextImageKHR(m_device, m_swapchain, UINT64_MAX,
                                       presentCompleteSemaphore,
-                                      (VkFence)0, // TODO: Show use of fence
+                                      nullptr, // TODO: Show use of fence
                                       &m_current_buffer);
     if (err == VK_ERROR_OUT_OF_DATE_KHR) {
         // swapchain is out of date (e.g. the window was resized) and
         // must be recreated:
         resize_vk();
         draw(); // FIXME recursive - bleh
-        vkDestroySemaphore(m_device, presentCompleteSemaphore, NULL);
+        vkDestroySemaphore(m_device, presentCompleteSemaphore, nullptr);
         return;
     } else if (err == VK_SUBOPTIMAL_KHR) {
         // swapchain is not as optimal as it could be, but the platform's
@@ -602,26 +602,26 @@ void Demo::draw() {
     VkPipelineStageFlags pipe_stage_flags = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
     VkSubmitInfo submit_info = {};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submit_info.pNext = NULL;
+    submit_info.pNext = nullptr;
     submit_info.waitSemaphoreCount = 1;
     submit_info.pWaitSemaphores = &presentCompleteSemaphore;
     submit_info.pWaitDstStageMask = &pipe_stage_flags;
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers = &m_buffers[m_current_buffer].cmd;
     submit_info.signalSemaphoreCount = 0;
-    submit_info.pSignalSemaphores = NULL;
+    submit_info.pSignalSemaphores = nullptr;
 
     err = vkQueueSubmit(m_queue, 1, &submit_info, nullFence);
     Q_ASSERT(!err);
 
     VkPresentInfoKHR present = {};
     present.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    present.pNext = NULL;
+    present.pNext = nullptr;
     present.swapchainCount = 1;
     present.pSwapchains = &m_swapchain;
     present.pImageIndices = &m_current_buffer;
     present.waitSemaphoreCount = 0;
-    present.pResults = 0;
+    present.pResults = nullptr;
 
     // TBD/TODO: SHOULD THE "present" PARAMETER BE "const" IN THE HEADER?
     err = fpQueuePresentKHR(m_queue, &present);
@@ -639,7 +639,7 @@ void Demo::draw() {
     err = vkQueueWaitIdle(m_queue);
     Q_ASSERT(err == VK_SUCCESS);
 
-    vkDestroySemaphore(m_device, presentCompleteSemaphore, NULL);
+    vkDestroySemaphore(m_device, presentCompleteSemaphore, nullptr);
 }
 
 void Demo::prepare_buffers() {
@@ -709,7 +709,7 @@ void Demo::prepare_buffers() {
 
     VkSwapchainCreateInfoKHR swapchain_ci = {};
         swapchain_ci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-        swapchain_ci.pNext = NULL;
+        swapchain_ci.pNext = nullptr;
         swapchain_ci.surface = m_surface;
         swapchain_ci.minImageCount = desiredNumberOfSwapchainImages;
         swapchain_ci.imageFormat = m_format;
@@ -722,20 +722,20 @@ void Demo::prepare_buffers() {
         swapchain_ci.imageArrayLayers = 1;
         swapchain_ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         swapchain_ci.queueFamilyIndexCount = 0;
-        swapchain_ci.pQueueFamilyIndices = NULL;
+        swapchain_ci.pQueueFamilyIndices = nullptr;
         swapchain_ci.presentMode = swapchainPresentMode;
         swapchain_ci.oldSwapchain = oldSwapchain;
         swapchain_ci.clipped = true;
 
-    err = fpCreateSwapchainKHR(m_device, &swapchain_ci, NULL, &m_swapchain);
+    err = fpCreateSwapchainKHR(m_device, &swapchain_ci, nullptr, &m_swapchain);
     Q_ASSERT(!err);
 
     // If we just re-created an existing swapchain, we should destroy the old
     // swapchain at this point.
     // Note: destroying the swapchain also cleans up all its associated
     // presentable images once the platform is done with them.
-    if (oldSwapchain != VK_NULL_HANDLE) {
-        fpDestroySwapchainKHR(m_device, oldSwapchain, NULL);
+    if (oldSwapchain != nullptr) {
+        fpDestroySwapchainKHR(m_device, oldSwapchain, nullptr);
     }
 
     auto getSwapChainImages = [this](uint32_t* c, VkImage* d) {
@@ -751,7 +751,7 @@ void Demo::prepare_buffers() {
     for (int i = 0; i < m_buffers.count(); i++) {
         VkImageViewCreateInfo color_image_view = {};
         color_image_view.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        color_image_view.pNext = NULL;
+        color_image_view.pNext = nullptr;
         color_image_view.format = m_format;
         color_image_view.components = {
             VK_COMPONENT_SWIZZLE_R,
@@ -780,7 +780,7 @@ void Demo::prepare_buffers() {
 
         color_image_view.image = m_buffers[i].image;
 
-        err = vkCreateImageView(m_device, &color_image_view, NULL, &m_buffers[i].view);
+        err = vkCreateImageView(m_device, &color_image_view, nullptr, &m_buffers[i].view);
         Q_ASSERT(!err);
     }
 }
@@ -791,7 +791,7 @@ void Demo::prepare_depth() {
     const VkFormat depth_format = VK_FORMAT_D16_UNORM;
     VkImageCreateInfo image = {};
         image.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        image.pNext = NULL;
+        image.pNext = nullptr;
         image.imageType = VK_IMAGE_TYPE_2D;
         image.format = depth_format;
         image.extent.width = width();
@@ -806,8 +806,8 @@ void Demo::prepare_depth() {
 
     VkImageViewCreateInfo view = {};
         view.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        view.pNext = NULL;
-        view.image = VK_NULL_HANDLE;
+        view.pNext = nullptr;
+        view.image = nullptr;
         view.format = depth_format;
         view.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
          view.subresourceRange.baseMipLevel = 0;
@@ -824,14 +824,14 @@ void Demo::prepare_depth() {
     m_depth.format = depth_format;
 
     /* create image */
-    err = vkCreateImage(m_device, &image, NULL, &m_depth.image);
+    err = vkCreateImage(m_device, &image, nullptr, &m_depth.image);
     Q_ASSERT(!err);
 
     vkGetImageMemoryRequirements(m_device, m_depth.image, &mem_reqs);
     Q_ASSERT(!err);
 
     m_depth.mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    m_depth.mem_alloc.pNext = NULL;
+    m_depth.mem_alloc.pNext = nullptr;
     m_depth.mem_alloc.allocationSize = mem_reqs.size;
     m_depth.mem_alloc.memoryTypeIndex = 0;
 
@@ -841,7 +841,7 @@ void Demo::prepare_depth() {
     Q_ASSERT(pass);
 
     /* allocate memory */
-    err = vkAllocateMemory(m_device, &m_depth.mem_alloc, NULL,
+    err = vkAllocateMemory(m_device, &m_depth.mem_alloc, nullptr,
                            &m_depth.mem);
     Q_ASSERT(!err);
 
@@ -857,7 +857,7 @@ void Demo::prepare_depth() {
 
     /* create image view */
     view.image = m_depth.image;
-    err = vkCreateImageView(m_device, &view, NULL, &m_depth.view);
+    err = vkCreateImageView(m_device, &view, nullptr, &m_depth.view);
     Q_ASSERT(!err);
 }
 
@@ -916,7 +916,7 @@ void Demo::prepare_texture_image(const char *filename,
 
     VkImageCreateInfo image_create_info = {};
     image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    image_create_info.pNext = NULL;
+    image_create_info.pNext = nullptr;
     image_create_info.imageType = VK_IMAGE_TYPE_2D;
     image_create_info.format = tex_format;
     image_create_info.extent.width = img.width();
@@ -932,13 +932,13 @@ void Demo::prepare_texture_image(const char *filename,
 
     VkMemoryRequirements mem_reqs;
 
-    err = vkCreateImage(m_device, &image_create_info, NULL, &tex_obj->image);
+    err = vkCreateImage(m_device, &image_create_info, nullptr, &tex_obj->image);
     Q_ASSERT(!err);
 
     vkGetImageMemoryRequirements(m_device, tex_obj->image, &mem_reqs);
 
     tex_obj->mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    tex_obj->mem_alloc.pNext = NULL;
+    tex_obj->mem_alloc.pNext = nullptr;
     tex_obj->mem_alloc.allocationSize = mem_reqs.size;
     tex_obj->mem_alloc.memoryTypeIndex = 0;
 
@@ -948,7 +948,7 @@ void Demo::prepare_texture_image(const char *filename,
     Q_ASSERT(pass);
 
     /* allocate memory */
-    err = vkAllocateMemory(m_device, &tex_obj->mem_alloc, NULL,
+    err = vkAllocateMemory(m_device, &tex_obj->mem_alloc, nullptr,
                            &(tex_obj->mem));
     Q_ASSERT(!err);
 
@@ -989,8 +989,8 @@ void Demo::destroy_texture_image(struct texture_object *tex_objs) {
     DEBUG_ENTRY;
 
     /* clean up staging resources */
-    vkFreeMemory(m_device, tex_objs->mem, NULL);
-    vkDestroyImage(m_device, tex_objs->image, NULL);
+    vkFreeMemory(m_device, tex_objs->mem, nullptr);
+    vkDestroyImage(m_device, tex_objs->image, nullptr);
 }
 
 void Demo::prepare_textures() {
@@ -1068,7 +1068,7 @@ void Demo::prepare_textures() {
 
         VkSamplerCreateInfo sampler = {};
             sampler.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-            sampler.pNext = NULL;
+            sampler.pNext = nullptr;
             sampler.magFilter = VK_FILTER_NEAREST;
             sampler.minFilter = VK_FILTER_NEAREST;
             sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
@@ -1086,8 +1086,8 @@ void Demo::prepare_textures() {
 
         VkImageViewCreateInfo view = {};
         view.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        view.pNext = NULL;
-        view.image = VK_NULL_HANDLE;
+        view.pNext = nullptr;
+        view.image = nullptr;
         view.viewType = VK_IMAGE_VIEW_TYPE_2D;
         view.format = tex_format;
         // attention: BGRA since that is what QImageReader gives us
@@ -1100,13 +1100,13 @@ void Demo::prepare_textures() {
         view.flags = 0;
 
         /* create sampler */
-        err = vkCreateSampler(m_device, &sampler, NULL,
+        err = vkCreateSampler(m_device, &sampler, nullptr,
                               &m_textures[i].sampler);
         Q_ASSERT(!err);
 
         /* create image view */
         view.image = m_textures[i].image;
-        err = vkCreateImageView(m_device, &view, NULL,
+        err = vkCreateImageView(m_device, &view, nullptr,
                                 &m_textures[i].view);
         Q_ASSERT(!err);
     }
@@ -1141,13 +1141,13 @@ void Demo::prepare_cube_data_buffer() {
     buf_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     buf_info.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
     buf_info.size = sizeof(data);
-    err = vkCreateBuffer(m_device, &buf_info, NULL, &m_uniform_data.buf);
+    err = vkCreateBuffer(m_device, &buf_info, nullptr, &m_uniform_data.buf);
     Q_ASSERT(!err);
     VkMemoryRequirements mem_reqs = {};
     vkGetBufferMemoryRequirements(m_device, m_uniform_data.buf, &mem_reqs);
 
     m_uniform_data.mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    m_uniform_data.mem_alloc.pNext = NULL;
+    m_uniform_data.mem_alloc.pNext = nullptr;
     m_uniform_data.mem_alloc.allocationSize = mem_reqs.size;
     m_uniform_data.mem_alloc.memoryTypeIndex = 0;
 
@@ -1156,7 +1156,7 @@ void Demo::prepare_cube_data_buffer() {
         &m_uniform_data.mem_alloc.memoryTypeIndex);
     Q_ASSERT(pass);
 
-    err = vkAllocateMemory(m_device, &m_uniform_data.mem_alloc, NULL,
+    err = vkAllocateMemory(m_device, &m_uniform_data.mem_alloc, nullptr,
                            &(m_uniform_data.mem));
     Q_ASSERT(!err);
 
@@ -1186,32 +1186,32 @@ void Demo::prepare_descriptor_layout() {
     layout_bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     layout_bindings[0].descriptorCount = 1;
     layout_bindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    layout_bindings[0].pImmutableSamplers = NULL;
+    layout_bindings[0].pImmutableSamplers = nullptr;
     layout_bindings[1].binding = 1;
     layout_bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     layout_bindings[1].descriptorCount = DEMO_TEXTURE_COUNT;
     layout_bindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    layout_bindings[1].pImmutableSamplers = NULL;
+    layout_bindings[1].pImmutableSamplers = nullptr;
 
     VkDescriptorSetLayoutCreateInfo descriptor_layout = {};
     descriptor_layout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    descriptor_layout.pNext = NULL;
+    descriptor_layout.pNext = nullptr;
     descriptor_layout.bindingCount = 2;
     descriptor_layout.pBindings = layout_bindings;
 
     VkResult U_ASSERT_ONLY err;
 
-    err = vkCreateDescriptorSetLayout(m_device, &descriptor_layout, NULL,
+    err = vkCreateDescriptorSetLayout(m_device, &descriptor_layout, nullptr,
                                       &m_desc_layout);
     Q_ASSERT(!err);
 
     VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = {};
         pPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pPipelineLayoutCreateInfo.pNext = NULL;
+        pPipelineLayoutCreateInfo.pNext = nullptr;
         pPipelineLayoutCreateInfo.setLayoutCount = 1;
         pPipelineLayoutCreateInfo.pSetLayouts = &m_desc_layout;
 
-    err = vkCreatePipelineLayout(m_device, &pPipelineLayoutCreateInfo, NULL,
+    err = vkCreatePipelineLayout(m_device, &pPipelineLayoutCreateInfo, nullptr,
                                  &m_pipeline_layout);
     Q_ASSERT(!err);
 }
@@ -1250,26 +1250,26 @@ void Demo::prepare_render_pass() {
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.flags = 0;
     subpass.inputAttachmentCount = 0;
-    subpass.pInputAttachments = NULL;
+    subpass.pInputAttachments = nullptr;
     subpass.colorAttachmentCount = 1;
     subpass.pColorAttachments = &color_reference;
-    subpass.pResolveAttachments = NULL;
+    subpass.pResolveAttachments = nullptr;
     subpass.pDepthStencilAttachment = &depth_reference;
     subpass.preserveAttachmentCount = 0;
-    subpass.pPreserveAttachments = NULL;
+    subpass.pPreserveAttachments = nullptr;
 
     VkRenderPassCreateInfo rp_info = {};
     rp_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    rp_info.pNext = NULL;
+    rp_info.pNext = nullptr;
     rp_info.attachmentCount = 2;
     rp_info.pAttachments = attachments;
     rp_info.subpassCount = 1;
     rp_info.pSubpasses = &subpass;
     rp_info.dependencyCount = 0;
-    rp_info.pDependencies = NULL;
+    rp_info.pDependencies = nullptr;
     VkResult U_ASSERT_ONLY err;
 
-    err = vkCreateRenderPass(m_device, &rp_info, NULL, &m_render_pass);
+    err = vkCreateRenderPass(m_device, &rp_info, nullptr, &m_render_pass);
     Q_ASSERT(!err);
 }
 
@@ -1286,14 +1286,14 @@ VkShaderModule Demo::createShaderModule(QString filename) {
     VkShaderModuleCreateInfo moduleCreateInfo = {};
 
     moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    moduleCreateInfo.pNext = NULL;
+    moduleCreateInfo.pNext = nullptr;
 
     moduleCreateInfo.codeSize = code.size();
     moduleCreateInfo.pCode = (uint32_t*) code.data(); //possible alignment issue?
     moduleCreateInfo.flags = 0;
 
-    VkShaderModule module = 0;
-    err = vkCreateShaderModule(m_device, &moduleCreateInfo, NULL, &module);
+    VkShaderModule module = nullptr;
+    err = vkCreateShaderModule(m_device, &moduleCreateInfo, nullptr, &module);
     Q_ASSERT(!err);
 
     return module;
@@ -1354,7 +1354,7 @@ void Demo::prepare_pipeline() {
 
     VkPipelineMultisampleStateCreateInfo ms = {};
     ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    ms.pSampleMask = NULL;
+    ms.pSampleMask = nullptr;
     ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
     const int numStages = 2;      // Two stages: vs and fs
@@ -1374,7 +1374,7 @@ void Demo::prepare_pipeline() {
     pipelineCache_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
 
     VkResult U_ASSERT_ONLY err;
-    err = vkCreatePipelineCache(m_device, &pipelineCache_ci, NULL, &m_pipelineCache);
+    err = vkCreatePipelineCache(m_device, &pipelineCache_ci, nullptr, &m_pipelineCache);
     Q_ASSERT(!err);
 
     VkGraphicsPipelineCreateInfo pipeline_ci = {};
@@ -1393,11 +1393,11 @@ void Demo::prepare_pipeline() {
     pipeline_ci.pDynamicState = &dynamicState;
     pipeline_ci.renderPass = m_render_pass;
 
-    err = vkCreateGraphicsPipelines(m_device, m_pipelineCache, 1, &pipeline_ci, NULL, &m_pipeline);
+    err = vkCreateGraphicsPipelines(m_device, m_pipelineCache, 1, &pipeline_ci, nullptr, &m_pipeline);
     Q_ASSERT(!err);
 
     for ( uint32_t i = 0; i < pipeline_ci.stageCount; i++ ) {
-        vkDestroyShaderModule(m_device, shaderStages[i].module, NULL);
+        vkDestroyShaderModule(m_device, shaderStages[i].module, nullptr);
     }
 }
 
@@ -1412,14 +1412,14 @@ void Demo::prepare_descriptor_pool() {
 
     VkDescriptorPoolCreateInfo descriptor_pool = {};
     descriptor_pool.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    descriptor_pool.pNext = NULL;
+    descriptor_pool.pNext = nullptr;
     descriptor_pool.maxSets = 1;
     descriptor_pool.poolSizeCount = 2;
     descriptor_pool.pPoolSizes = type_counts;
 
     VkResult U_ASSERT_ONLY err;
 
-    err = vkCreateDescriptorPool(m_device, &descriptor_pool, NULL,
+    err = vkCreateDescriptorPool(m_device, &descriptor_pool, nullptr,
                                  &m_desc_pool);
     Q_ASSERT(!err);
 }
@@ -1429,7 +1429,7 @@ void Demo::prepare_descriptor_set() {
 
     VkDescriptorSetAllocateInfo alloc_info = {};
     alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    alloc_info.pNext = NULL;
+    alloc_info.pNext = nullptr;
     alloc_info.descriptorPool = m_desc_pool;
     alloc_info.descriptorSetCount = 1;
     alloc_info.pSetLayouts = &m_desc_layout;
@@ -1459,7 +1459,7 @@ void Demo::prepare_descriptor_set() {
     writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     writes[1].pImageInfo = tex_descs;
 
-    vkUpdateDescriptorSets(m_device, 2, writes, 0, NULL);
+    vkUpdateDescriptorSets(m_device, 2, writes, 0, nullptr);
 }
 
 void Demo::prepare_framebuffers() {
@@ -1470,7 +1470,7 @@ void Demo::prepare_framebuffers() {
 
     VkFramebufferCreateInfo fb_info = {};
     fb_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    fb_info.pNext = NULL;
+    fb_info.pNext = nullptr;
     fb_info.renderPass = m_render_pass;
     fb_info.attachmentCount = 2;
     fb_info.pAttachments = attachments;
@@ -1484,7 +1484,7 @@ void Demo::prepare_framebuffers() {
 
     for (int i = 0; i < m_buffers.count(); i++) {
         attachments[0] = m_buffers[i].view;
-        err = vkCreateFramebuffer(m_device, &fb_info, NULL, &m_framebuffers[i]);
+        err = vkCreateFramebuffer(m_device, &fb_info, nullptr, &m_framebuffers[i]);
         Q_ASSERT(!err);
     }
 }
@@ -1513,17 +1513,17 @@ void Demo::prepare() {
 
     VkCommandPoolCreateInfo cmd_pool_info = {};
     cmd_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    cmd_pool_info.pNext = NULL;
+    cmd_pool_info.pNext = nullptr;
     cmd_pool_info.queueFamilyIndex = m_graphics_queue_node_index;
     cmd_pool_info.flags = 0;
 
-    err = vkCreateCommandPool(m_device, &cmd_pool_info, NULL,
+    err = vkCreateCommandPool(m_device, &cmd_pool_info, nullptr,
                               &m_cmd_pool);
     Q_ASSERT(!err);
 
     VkCommandBufferAllocateInfo cmd = {};
     cmd.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    cmd.pNext = NULL;
+    cmd.pNext = nullptr;
     cmd.commandPool = m_cmd_pool;
     cmd.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     cmd.commandBufferCount = 1;
@@ -1577,35 +1577,35 @@ void Demo::resize_vk() {
     m_prepared = false;
 
     for (int i = 0; i < m_framebuffers.count(); i++) {
-        vkDestroyFramebuffer(m_device, m_framebuffers[i], NULL);
+        vkDestroyFramebuffer(m_device, m_framebuffers[i], nullptr);
     }
-    vkDestroyDescriptorPool(m_device, m_desc_pool, NULL);
+    vkDestroyDescriptorPool(m_device, m_desc_pool, nullptr);
 
-    vkDestroyPipeline(m_device, m_pipeline, NULL);
-    vkDestroyPipelineCache(m_device, m_pipelineCache, NULL);
-    vkDestroyRenderPass(m_device, m_render_pass, NULL);
-    vkDestroyPipelineLayout(m_device, m_pipeline_layout, NULL);
-    vkDestroyDescriptorSetLayout(m_device, m_desc_layout, NULL);
+    vkDestroyPipeline(m_device, m_pipeline, nullptr);
+    vkDestroyPipelineCache(m_device, m_pipelineCache, nullptr);
+    vkDestroyRenderPass(m_device, m_render_pass, nullptr);
+    vkDestroyPipelineLayout(m_device, m_pipeline_layout, nullptr);
+    vkDestroyDescriptorSetLayout(m_device, m_desc_layout, nullptr);
 
     for (int i = 0; i < DEMO_TEXTURE_COUNT; i++) {
-        vkDestroyImageView(m_device, m_textures[i].view, NULL);
-        vkDestroyImage(m_device, m_textures[i].image, NULL);
-        vkFreeMemory(m_device, m_textures[i].mem, NULL);
-        vkDestroySampler(m_device, m_textures[i].sampler, NULL);
+        vkDestroyImageView(m_device, m_textures[i].view, nullptr);
+        vkDestroyImage(m_device, m_textures[i].image, nullptr);
+        vkFreeMemory(m_device, m_textures[i].mem, nullptr);
+        vkDestroySampler(m_device, m_textures[i].sampler, nullptr);
     }
 
-    vkDestroyImageView(m_device, m_depth.view, NULL);
-    vkDestroyImage(m_device, m_depth.image, NULL);
-    vkFreeMemory(m_device, m_depth.mem, NULL);
+    vkDestroyImageView(m_device, m_depth.view, nullptr);
+    vkDestroyImage(m_device, m_depth.image, nullptr);
+    vkFreeMemory(m_device, m_depth.mem, nullptr);
 
-    vkDestroyBuffer(m_device, m_uniform_data.buf, NULL);
-    vkFreeMemory(m_device, m_uniform_data.mem, NULL);
+    vkDestroyBuffer(m_device, m_uniform_data.buf, nullptr);
+    vkFreeMemory(m_device, m_uniform_data.mem, nullptr);
 
     for (int i = 0; i < m_buffers.count(); i++) {
-        vkDestroyImageView(m_device, m_buffers[i].view, NULL);
+        vkDestroyImageView(m_device, m_buffers[i].view, nullptr);
         vkFreeCommandBuffers(m_device, m_cmd_pool, 1, &m_buffers[i].cmd);
     }
-    vkDestroyCommandPool(m_device, m_cmd_pool, NULL);
+    vkDestroyCommandPool(m_device, m_cmd_pool, nullptr);
     m_buffers.clear();
 
     // Second, re-perform the demo_prepare() function, which will re-create the
@@ -1687,7 +1687,7 @@ void Demo::init_vk() {
     VkBool32 surfaceExtFound = 0;
     VkBool32 platformSurfaceExtFound = 0;
 
-    auto getExt = [](uint32_t* c, VkExtensionProperties* d) { return vkEnumerateInstanceExtensionProperties(NULL, c, d); };
+    auto getExt = [](uint32_t* c, VkExtensionProperties* d) { return vkEnumerateInstanceExtensionProperties(nullptr, c, d); };
     auto instanceExtensions = getVk<VkExtensionProperties>(getExt);
 
     if (instanceExtensions.isEmpty()) {
@@ -1731,7 +1731,7 @@ void Demo::init_vk() {
     }
     VkApplicationInfo app = {};
     app.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    app.pNext = NULL;
+    app.pNext = nullptr;
     app.pApplicationName = "cube";
     app.applicationVersion = 0;
     app.pEngineName = "cubenegine";
@@ -1740,7 +1740,7 @@ void Demo::init_vk() {
 
     VkInstanceCreateInfo inst_info = {};
     inst_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    inst_info.pNext = NULL;
+    inst_info.pNext = nullptr;
     inst_info.pApplicationInfo = &app;
     inst_info.enabledLayerCount = instanceValidationLayers.count();
     inst_info.ppEnabledLayerNames = instanceValidationLayers.data();
@@ -1755,16 +1755,16 @@ void Demo::init_vk() {
     VkDebugReportCallbackCreateInfoEXT dbgCreateInfo = {};
     if (m_validate) {
         dbgCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
-        dbgCreateInfo.pNext = NULL;
+        dbgCreateInfo.pNext = nullptr;
         dbgCreateInfo.pfnCallback = m_use_break ? BreakCallback : dbgFunc;
-        dbgCreateInfo.pUserData = NULL;
+        dbgCreateInfo.pUserData = nullptr;
         dbgCreateInfo.flags =
             VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
         // | VK_DEBUG_REPORT_INFORMATION_BIT_EXT;
         inst_info.pNext = &dbgCreateInfo;
     }
 
-    VkResult err = vkCreateInstance(&inst_info, NULL, &m_inst);
+    VkResult err = vkCreateInstance(&inst_info, nullptr, &m_inst);
     if (err == VK_ERROR_INCOMPATIBLE_DRIVER) {
         ERR_EXIT("Cannot find a compatible Vulkan installable client driver "
                  "(ICD).\n\nPlease look at the Getting Started guide for "
@@ -1870,13 +1870,13 @@ void Demo::init_vk() {
         PFN_vkDebugReportCallbackEXT callback;
         callback = m_use_break ? BreakCallback : dbgFunc;
         dbgCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
-        dbgCreateInfo.pNext = NULL;
+        dbgCreateInfo.pNext = nullptr;
         dbgCreateInfo.pfnCallback = callback;
-        dbgCreateInfo.pUserData = NULL;
+        dbgCreateInfo.pUserData = nullptr;
         dbgCreateInfo.flags =
             VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
         //| VK_DEBUG_REPORT_INFORMATION_BIT_EXT;
-        err = CreateDebugReportCallback(m_inst, &dbgCreateInfo, NULL, &msg_callback);
+        err = CreateDebugReportCallback(m_inst, &dbgCreateInfo, nullptr, &msg_callback);
         switch (err) {
         case VK_SUCCESS:
             break;
@@ -1924,14 +1924,14 @@ void Demo::create_device() {
     float queue_priorities[1] = {0.0};
     VkDeviceQueueCreateInfo queue = {};
     queue.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queue.pNext = NULL;
+    queue.pNext = nullptr;
     queue.queueFamilyIndex = m_graphics_queue_node_index;
     queue.queueCount = 1;
     queue.pQueuePriorities = queue_priorities;
 
     VkDeviceCreateInfo device_ci = {};
     device_ci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    device_ci.pNext = NULL;
+    device_ci.pNext = nullptr;
     device_ci.queueCreateInfoCount = 1;
     device_ci.pQueueCreateInfos = &queue;
     if(m_validate) {
@@ -1940,9 +1940,9 @@ void Demo::create_device() {
     }
     device_ci.enabledExtensionCount = m_extensionNames.count();
     device_ci.ppEnabledExtensionNames = m_extensionNames.data();
-    device_ci.pEnabledFeatures = NULL; // If specific features are required, pass them in here
+    device_ci.pEnabledFeatures = nullptr; // If specific features are required, pass them in here
 
-    err = vkCreateDevice(m_gpu, &device_ci, NULL, &m_device);
+    err = vkCreateDevice(m_gpu, &device_ci, nullptr, &m_device);
     Q_ASSERT(!err);
 }
 
@@ -1955,13 +1955,13 @@ void Demo::init_vk_swapchain() {
 #ifdef _WIN32
     VkWin32SurfaceCreateInfoKHR createInfo;
     createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-    createInfo.pNext = NULL;
+    createInfo.pNext = nullptr;
     createInfo.flags = 0;
     createInfo.hinstance = connection;
     createInfo.hwnd = window;
 
     err =
-        vkCreateWin32SurfaceKHR(inst, &createInfo, NULL, &surface);
+        vkCreateWin32SurfaceKHR(inst, &createInfo, nullptr, &surface);
 #else
 
     QPlatformNativeInterface *native =  QGuiApplication::platformNativeInterface();
@@ -1974,12 +1974,12 @@ void Demo::init_vk_swapchain() {
     qDebug()<<"connection and winid:"<<connection<<xcb_window;
     VkXcbSurfaceCreateInfoKHR createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
-    createInfo.pNext = NULL;
+    createInfo.pNext = nullptr;
     createInfo.flags = 0;
     createInfo.connection = connection;
     createInfo.window = xcb_window;
 
-    err = vkCreateXcbSurfaceKHR(m_inst, &createInfo, NULL, &m_surface);
+    err = vkCreateXcbSurfaceKHR(m_inst, &createInfo, nullptr, &m_surface);
 
 #endif // _WIN32
     Q_ASSERT(!err);
