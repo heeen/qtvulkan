@@ -3,7 +3,7 @@ QT += widgets gui gui-private
 # FIXME paths...
 INCLUDEPATH += $$PWD/../../Vulkan-LoaderAndValidationLayers/include
 LIBS += -lvulkan -L$$PWD/../../Vulkan-LoaderAndValidationLayers/dbuild/loader -lxcb
-QMAKE_CXXFLAGS += -g -O -Wall -Weffc++ -pedantic  \
+QMAKE_CXXFLAGS += -g -O -Wall  -pedantic  \
     -pedantic-errors -Wextra  -Wcast-align \
     -Wcast-qual  -Wchar-subscripts -Wcomment -Wconversion \
     -Wdisabled-optimization \
@@ -14,7 +14,7 @@ QMAKE_CXXFLAGS += -g -O -Wall -Weffc++ -pedantic  \
     -Winvalid-pch   \
     -Wunsafe-loop-optimizations  -Wlong-long -Wmissing-braces \
     -Wmissing-field-initializers -Wmissing-format-attribute   \
-    -Wmissing-include-dirs -Wmissing-noreturn \
+    -Wmissing-noreturn \
     -Wpacked -Wparentheses  -Wpointer-arith \
     -Wredundant-decls -Wreturn-type \
     -Wsequence-point  -Wshadow -Wsign-compare  -Wstack-protector \
@@ -29,11 +29,12 @@ QMAKE_CXXFLAGS += -g -O -Wall -Weffc++ -pedantic  \
     -Werror
 
 # -Wswitch-enum
-# warnings caused by vulkan.h: -Wpadded
+# warnings caused by vulkan.h: -Wpadded -Weffc++
 # warnings caused by Qt: -Waggregate-return
 SOURCES += \
     cube.cpp
 
 HEADERS += \
-    cube.h
+    cube.h \
+    QVkCmdBuf.h
 

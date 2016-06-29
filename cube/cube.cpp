@@ -37,6 +37,9 @@
 
 #include <QtMath>
 #include <qpa/qplatformnativeinterface.h>
+#include "cubemesh.h"
+
+#include "QVkCmdBuf.h"
 
 static PFN_vkGetDeviceProcAddr g_gdpa = nullptr;
 
@@ -44,93 +47,31 @@ static const char *tex_files[] = {"lunarg.ppm"};
 
 static int validation_error = 0;
 
-static const float g_vertex_buffer_data[] = {
-    -1.0f,-1.0f,-1.0f,  // -X side
-    -1.0f,-1.0f, 1.0f,
-    -1.0f, 1.0f, 1.0f,
-    -1.0f, 1.0f, 1.0f,
-    -1.0f, 1.0f,-1.0f,
-    -1.0f,-1.0f,-1.0f,
-
-    -1.0f,-1.0f,-1.0f,  // -Z side
-     1.0f, 1.0f,-1.0f,
-     1.0f,-1.0f,-1.0f,
-    -1.0f,-1.0f,-1.0f,
-    -1.0f, 1.0f,-1.0f,
-     1.0f, 1.0f,-1.0f,
-
-    -1.0f,-1.0f,-1.0f,  // -Y side
-     1.0f,-1.0f,-1.0f,
-     1.0f,-1.0f, 1.0f,
-    -1.0f,-1.0f,-1.0f,
-     1.0f,-1.0f, 1.0f,
-    -1.0f,-1.0f, 1.0f,
-
-    -1.0f, 1.0f,-1.0f,  // +Y side
-    -1.0f, 1.0f, 1.0f,
-     1.0f, 1.0f, 1.0f,
-    -1.0f, 1.0f,-1.0f,
-     1.0f, 1.0f, 1.0f,
-     1.0f, 1.0f,-1.0f,
-
-     1.0f, 1.0f,-1.0f,  // +X side
-     1.0f, 1.0f, 1.0f,
-     1.0f,-1.0f, 1.0f,
-     1.0f,-1.0f, 1.0f,
-     1.0f,-1.0f,-1.0f,
-     1.0f, 1.0f,-1.0f,
-
-    -1.0f, 1.0f, 1.0f,  // +Z side
-    -1.0f,-1.0f, 1.0f,
-     1.0f, 1.0f, 1.0f,
-    -1.0f,-1.0f, 1.0f,
-     1.0f,-1.0f, 1.0f,
-     1.0f, 1.0f, 1.0f,
+struct MeshData {
+    MeshData(): pos(), uv() {}
+    QVector<QVector3D> pos;
+    QVector<QVector2D> uv;
 };
 
-static const float g_uv_buffer_data[] = {
-    0.0f, 0.0f,  // -X side
-    1.0f, 0.0f,
-    1.0f, 1.0f,
-    1.0f, 1.0f,
-    0.0f, 1.0f,
-    0.0f, 0.0f,
+MeshData makeCube() {
+    MeshData mesh;
+    int numverts = 6*6;
+    mesh.pos.reserve(numverts);
+    mesh.uv.reserve(numverts);
 
-    1.0f, 0.0f,  // -Z side
-    0.0f, 1.0f,
-    0.0f, 0.0f,
-    1.0f, 0.0f,
-    1.0f, 1.0f,
-    0.0f, 1.0f,
+    for(int i=0; i < numverts; i++) {
+        mesh.pos<<QVector3D(
+                g_vertex_buffer_data[i*3+0],
+                g_vertex_buffer_data[i*3+1],
+                g_vertex_buffer_data[i*3+2]);
 
-    1.0f, 1.0f,  // -Y side
-    1.0f, 0.0f,
-    0.0f, 0.0f,
-    1.0f, 1.0f,
-    0.0f, 0.0f,
-    0.0f, 1.0f,
+        mesh.uv<<QVector2D(
+                g_vertex_buffer_data[i*2+0],
+                g_vertex_buffer_data[i*2+1]);
+    }
 
-    1.0f, 1.0f,  // +Y side
-    0.0f, 1.0f,
-    0.0f, 0.0f,
-    1.0f, 1.0f,
-    0.0f, 0.0f,
-    1.0f, 0.0f,
-
-    1.0f, 1.0f,  // +X side
-    0.0f, 1.0f,
-    0.0f, 0.0f,
-    0.0f, 0.0f,
-    1.0f, 0.0f,
-    1.0f, 1.0f,
-
-    0.0f, 1.0f,  // +Z side
-    0.0f, 0.0f,
-    1.0f, 1.0f,
-    0.0f, 0.0f,
-    1.0f, 0.0f,
-    1.0f, 1.0f,
-};
+    return mesh;
+}
 
 VKAPI_ATTR VkBool32 VKAPI_CALL
 dbgFunc(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
@@ -439,70 +380,21 @@ void Demo::set_image_layout(VkImage image,
 void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
     DEBUG_ENTRY;
 
-    VkCommandBufferInheritanceInfo cmd_buf_hinfo = {};
-        cmd_buf_hinfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
-        cmd_buf_hinfo.pNext = nullptr;
-        cmd_buf_hinfo.renderPass = nullptr;
-        cmd_buf_hinfo.subpass = 0;
-        cmd_buf_hinfo.framebuffer = nullptr;
-        cmd_buf_hinfo.occlusionQueryEnable = VK_FALSE;
-        cmd_buf_hinfo.queryFlags = 0;
-        cmd_buf_hinfo.pipelineStatistics = 0;
+    QVkCommandBufferRecorder br(cmd_buf);
 
-    VkCommandBufferBeginInfo cmd_buf_info = {};
-    cmd_buf_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    cmd_buf_info.pNext = nullptr;
-    cmd_buf_info.flags = 0;
-    cmd_buf_info.pInheritanceInfo = &cmd_buf_hinfo;
+    br.beginRenderPass(m_render_pass,
+                       m_framebuffers[m_current_buffer],
+                       QVkRect(0, 0, width(), height()));
 
+    br.bindPipeline(m_pipeline);
+    br.bindDescriptorSet(m_pipeline_layout, &m_desc_set);
 
-    VkClearValue clear_values[2] = {{},{}};
-    clear_values[0].color.float32[0] = 0.2f;
-    clear_values[0].color.float32[1] = 0.2f;
-    clear_values[0].color.float32[2] = 0.4f;
-    clear_values[0].color.float32[3] = 0.2f;
-    clear_values[1].depthStencil = {1.0f, 0};
-
-    VkRenderPassBeginInfo rp_begin = {};
-    rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    rp_begin.pNext = nullptr;
-    rp_begin.renderPass = m_render_pass;
-    rp_begin.framebuffer = m_framebuffers[m_current_buffer];
-    rp_begin.renderArea.offset.x = 0;
-    rp_begin.renderArea.offset.y = 0;
-    rp_begin.renderArea.extent.width = width();
-    rp_begin.renderArea.extent.height = height();
-    rp_begin.clearValueCount = 2;
-    rp_begin.pClearValues = clear_values;
-
-    VkResult U_ASSERT_ONLY err;
-
-    err = vkBeginCommandBuffer(cmd_buf, &cmd_buf_info);
-    Q_ASSERT(!err);
-
-    vkCmdBeginRenderPass(cmd_buf, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
-
-    vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-    vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            m_pipeline_layout, 0, 1, &m_desc_set, 0,
-                            nullptr);
-
-    VkViewport viewport = {};
-    viewport.height = (float)height();
-    viewport.width = (float)width();
-    viewport.minDepth = (float)0.0f;
-    viewport.maxDepth = (float)1.0f;
-    vkCmdSetViewport(cmd_buf, 0, 1, &viewport);
-
-    VkRect2D scissor = {};
-    scissor.extent.width = (uint32_t)qMax(0, width());
-    scissor.extent.height = (uint32_t)qMax(0, height());
-    scissor.offset.x = 0;
-    scissor.offset.y = 0;
-    vkCmdSetScissor(cmd_buf, 0, 1, &scissor);
-
-    vkCmdDraw(cmd_buf, 12 * 3, 1, 0, 0);
-    vkCmdEndRenderPass(cmd_buf);
+    br.viewport(QVkViewport((float)width(), (float)height()));
+    br.scissor(QRect(0,0,
+        (uint32_t)qMax(0, width()),
+        (uint32_t)qMax(0, height())));
+    br.draw(12*3);
+    br.endRenderPass();
 
     VkImageMemoryBarrier prePresentBarrier = {};
     prePresentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -516,13 +408,10 @@ void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
     prePresentBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 
     prePresentBarrier.image = m_buffers[m_current_buffer].image;
-    VkImageMemoryBarrier *pmemory_barrier = &prePresentBarrier;
-    vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0,
-                         nullptr, 1, pmemory_barrier);
+    br.pipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                       VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                       0, &prePresentBarrier);
 
-    err = vkEndCommandBuffer(cmd_buf);
-    Q_ASSERT(!err);
 }
 
 void Demo::update_data_buffer() {
@@ -1537,8 +1426,7 @@ void Demo::prepare() {
     prepare_pipeline();
 
     for (int i = 0; i < m_buffers.count(); i++) {
-        err =
-            vkAllocateCommandBuffers(m_device, &cmd, &m_buffers[i].cmd);
+        err = vkAllocateCommandBuffers(m_device, &cmd, &m_buffers[i].cmd);
         Q_ASSERT(!err);
     }
 
