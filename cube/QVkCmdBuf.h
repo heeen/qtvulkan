@@ -1,54 +1,8 @@
 #ifndef QVKCMDBUF_H
 #define QVKCMDBUF_H
-#include <QRectF>
 
-struct QVkRect : public VkRect2D{
-    QVkRect() {}
-    QVkRect(int x, int y, int w, int h) {
-        extent.width = w;
-        extent.height = h;
-        offset.x = x;
-        offset.y = y;
-    };
-
-    QVkRect(QRect qr) {
-        extent.width = qr.width();
-        extent.height = qr.height();
-        offset.x = qr.left();
-        offset.y = qr.top();
-    }
-
-    QVkRect& operator=(QRect qr) {
-        extent.width = qr.width();
-        extent.height = qr.height();
-        offset.x = qr.left();
-        offset.y = qr.top();
-        return *this;
-    }
-};
-
-struct QVkViewport: public VkViewport {
-    QVkViewport() { width = 300.0f; height = 300.0f; }
-    QVkViewport(float aWidth, float aHeight)
-        : QVkViewport(0.0f, 0.0f, aWidth, aHeight, 0.0f, 1.0f)
-    { }
-    QVkViewport(float aX, float aY, float aWidth, float aHeight, float aMinDepth=0.0f, float aMaxDepth=1.0f) {
-        x = aX;
-        y = aY;
-        width = aWidth;
-        height = aHeight;
-        minDepth = aMinDepth;
-        maxDepth = aMaxDepth;
-    }
-};
-
-class QVkDeviceResource {
-public:
-    QVkDeviceResource(VkDevice dev): m_device(dev) {}
-protected:
-    VkDevice m_device;
-};
-
+#include "QVkUtil.h"
+#include <vulkan/vulkan.h>
 
 class QVkCommandBuffer: public QVkDeviceResource {
 public:

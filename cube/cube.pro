@@ -36,5 +36,6 @@ SOURCES += \
 
 HEADERS += \
     cube.h \
-    QVkCmdBuf.h
+    QVkCmdBuf.h \
+    QVkUtil.h
 

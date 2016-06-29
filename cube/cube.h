@@ -7,6 +7,8 @@
 #include <QVector>
 
 #include <vulkan/vulkan.h>
+#include "QVkCmdBuf.h"
+
 
 #define DEMO_TEXTURE_COUNT 1
 
@@ -31,11 +33,16 @@ struct texture_object {
     uint32_t tex_width, tex_height;
 };
 
+struct MeshData {
+    QVector<QVector3D> pos;
+    QVector<QVector2D> uv;
+};
+
 struct vktexcube_vs_uniform {
     // Must start with MVP
     float mvp[4][4];
-    float position[12 * 3][4];
-    float attr[12 * 3][4];
+    QVector4D position[12 * 3];
+    QVector4D attr[12 * 3];
 };
 
 typedef QVector<const char*> QVulkanNames;
@@ -166,6 +173,7 @@ private:
     PFN_vkQueuePresentKHR fpQueuePresentKHR             {nullptr};
 
     QElapsedTimer m_fpsTimer {};
+    MeshData m_cube;
 };
 
 #define GET_INSTANCE_PROC_ADDR(inst, entrypoint)                               \

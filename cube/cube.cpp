@@ -47,11 +47,6 @@ static const char *tex_files[] = {"lunarg.ppm"};
 
 static int validation_error = 0;
 
-struct MeshData {
-    MeshData(): pos(), uv() {}
-    QVector<QVector3D> pos;
-    QVector<QVector2D> uv;
-};
 
 MeshData makeCube() {
     MeshData mesh;
@@ -187,6 +182,7 @@ int main(int argc, char **argv) {
 Demo::Demo()
 {
     DEBUG_ENTRY;
+    m_cube = makeCube();
 
     QVector3D eye(0.0f, 3.0f, 5.0f);
     QVector3D origin(0, 0, 0);
@@ -390,10 +386,8 @@ void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
     br.bindDescriptorSet(m_pipeline_layout, &m_desc_set);
 
     br.viewport(QVkViewport((float)width(), (float)height()));
-    br.scissor(QRect(0,0,
-        (uint32_t)qMax(0, width()),
-        (uint32_t)qMax(0, height())));
-    br.draw(12*3);
+    br.scissor(QRect(0, 0, qMax(0, width()), qMax(0, height())));
+    br.draw(m_cube.pos.size());
     br.endRenderPass();
 
     VkImageMemoryBarrier prePresentBarrier = {};
@@ -406,8 +400,8 @@ void Demo::draw_build_cmd(VkCommandBuffer cmd_buf) {
     prePresentBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     prePresentBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     prePresentBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-
     prePresentBarrier.image = m_buffers[m_current_buffer].image;
+
     br.pipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
                        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
                        0, &prePresentBarrier);
@@ -698,10 +692,10 @@ void Demo::prepare_depth() {
         view.image = nullptr;
         view.format = depth_format;
         view.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-         view.subresourceRange.baseMipLevel = 0;
-         view.subresourceRange.levelCount = 1;
-         view.subresourceRange.baseArrayLayer = 0;
-         view.subresourceRange.layerCount = 1;
+        view.subresourceRange.baseMipLevel = 0;
+        view.subresourceRange.levelCount = 1;
+        view.subresourceRange.baseArrayLayer = 0;
+        view.subresourceRange.layerCount = 1;
         view.flags = 0;
         view.viewType = VK_IMAGE_VIEW_TYPE_2D;
 
@@ -747,40 +741,6 @@ void Demo::prepare_depth() {
     view.image = m_depth.image;
     err = vkCreateImageView(m_device, &view, nullptr, &m_depth.view);
     Q_ASSERT(!err);
-}
-
-VkFormat QtFormat2vkFormat(QImage::Format f) {
-    switch (f) {
-/*
-    case QImage::Format_Mono: return VK_FORMAT_UNDEFINED; //FIXME
-    case QImage::Format_MonoLSB: return VK_FORMAT_UNDEFINED;
-    case QImage::Format_Indexed8: return VK_FORMAT_UNDEFINED;
-*/
-    case QImage::Format_RGB32: return VK_FORMAT_R8G8B8A8_UNORM;
-    case QImage::Format_ARGB32: return VK_FORMAT_R8G8B8A8_UNORM;
-/*
-    case QImage::Format_ARGB32_Premultiplied: return VK_FORMAT_;
-    case QImage::Format_RGB16: return VK_FORMAT_;
-    case QImage::Format_ARGB8565_Premultiplied: return VK_FORMAT_;
-    case QImage::Format_RGB666: return VK_FORMAT_;
-    case QImage::Format_ARGB6666_Premultiplied: return VK_FORMAT_;
-    case QImage::Format_RGB555: return VK_FORMAT_;
-    case QImage::Format_ARGB8555_Premultiplied: return VK_FORMAT_;
-    case QImage::Format_RGB888: return VK_FORMAT_;
-    case QImage::Format_RGB444: return VK_FORMAT_;
-    case QImage::Format_ARGB4444_Premultiplied: return VK_FORMAT_;
-    case QImage::Format_RGBX8888: return VK_FORMAT_;
-    case QImage::Format_RGBA8888: return VK_FORMAT_;
-    case QImage::Format_RGBA8888_Premultiplied: return VK_FORMAT_;
-    case QImage::Format_BGR30: return VK_FORMAT_;
-    case QImage::Format_A2BGR30_Premultiplied: return VK_FORMAT_;
-    case QImage::Format_RGB30: return VK_FORMAT_;
-    case QImage::Format_A2RGB30_Premultiplied: return VK_FORMAT_;
-    case QImage::Format_Alpha8: return VK_FORMAT_;
-    case QImage::Format_Grayscale8: return VK_FORMAT_;
-*/
-    default: return VK_FORMAT_UNDEFINED;
-    }
 }
 
 void Demo::prepare_texture_image(const char *filename,
@@ -1014,15 +974,9 @@ void Demo::prepare_cube_data_buffer() {
     MVP = VP * m_model_matrix;
     memcpy(data.mvp, &MVP, sizeof(data.mvp));
 
-    for (i = 0; i < 12 * 3; i++) {
-        data.position[i][0] = g_vertex_buffer_data[i * 3];
-        data.position[i][1] = g_vertex_buffer_data[i * 3 + 1];
-        data.position[i][2] = g_vertex_buffer_data[i * 3 + 2];
-        data.position[i][3] = 1.0f;
-        data.attr[i][0] = g_uv_buffer_data[2 * i];
-        data.attr[i][1] = g_uv_buffer_data[2 * i + 1];
-        data.attr[i][2] = 0;
-        data.attr[i][3] = 0;
+    for (i = 0; i < m_cube.pos.size(); i++) {
+        data.position[i] = QVector4D(m_cube.pos[i], 1.0f);
+        data.attr[i] = m_cube.uv[i];
     }
 
     VkBufferCreateInfo buf_info = {};
@@ -1409,12 +1363,6 @@ void Demo::prepare() {
                               &m_cmd_pool);
     Q_ASSERT(!err);
 
-    VkCommandBufferAllocateInfo cmd = {};
-    cmd.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    cmd.pNext = nullptr;
-    cmd.commandPool = m_cmd_pool;
-    cmd.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    cmd.commandBufferCount = 1;
 
     prepare_buffers();
     prepare_depth();
@@ -1425,8 +1373,15 @@ void Demo::prepare() {
     prepare_render_pass();
     prepare_pipeline();
 
+    VkCommandBufferAllocateInfo cmd_ai = {};
+    cmd_ai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    cmd_ai.pNext = nullptr;
+    cmd_ai.commandPool = m_cmd_pool;
+    cmd_ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    cmd_ai.commandBufferCount = 1;
+
     for (int i = 0; i < m_buffers.count(); i++) {
-        err = vkAllocateCommandBuffers(m_device, &cmd, &m_buffers[i].cmd);
+        err = vkAllocateCommandBuffers(m_device, &cmd_ai, &m_buffers[i].cmd);
         Q_ASSERT(!err);
     }
 
