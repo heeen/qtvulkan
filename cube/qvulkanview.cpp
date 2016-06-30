@@ -62,8 +62,8 @@ MeshData makeCube() {
                 g_vertex_buffer_data[i*3+2]);
 
         mesh.uv<<QVector2D(
-                g_vertex_buffer_data[i*2+0],
-                g_vertex_buffer_data[i*2+1]);
+                g_uv_buffer_data[i*2+0],
+                g_uv_buffer_data[i*2+1]);
     }
 
     return mesh;
@@ -915,7 +915,6 @@ void QVulkanView::prepare_cube_data_buffer() {
     DEBUG_ENTRY;
 
     uint8_t *pData;
-    int i;
     QMatrix4x4 MVP, VP;
     VkResult U_ASSERT_ONLY err;
     bool U_ASSERT_ONLY pass;
@@ -925,9 +924,9 @@ void QVulkanView::prepare_cube_data_buffer() {
     MVP = VP * m_model_matrix;
     memcpy(data.mvp, &MVP, sizeof(data.mvp));
 
-    for (i = 0; i < m_cube.pos.size(); i++) {
+    for (int i = 0; i < m_cube.pos.size(); i++) {
         data.position[i] = QVector4D(m_cube.pos[i], 1.0f);
-        data.attr[i] = m_cube.uv[i];
+        data.attr[i] = QVector4D(m_cube.uv[i], 0.0f, 0.0f);
     }
 
     VkBufferCreateInfo buf_info = {};
