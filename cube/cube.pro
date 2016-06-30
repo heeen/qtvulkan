@@ -32,10 +32,13 @@ QMAKE_CXXFLAGS += -g -O -Wall  -pedantic  \
 # warnings caused by vulkan.h: -Wpadded -Weffc++
 # warnings caused by Qt: -Waggregate-return
 SOURCES += \
-    cube.cpp
+    cube.cpp \
+    qvulkanview.cpp \
+    qvkutil.cpp
 
 HEADERS += \
     cube.h \
-    QVkCmdBuf.h \
-    QVkUtil.h
+    qvkcmdbuf.h \
+    qvkutil.h \
+    qvulkanview.h
 

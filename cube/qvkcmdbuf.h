@@ -1,7 +1,7 @@
 #ifndef QVKCMDBUF_H
 #define QVKCMDBUF_H
 
-#include "QVkUtil.h"
+#include "qvkutil.h"
 #include <vulkan/vulkan.h>
 
 class QVkCommandBuffer: public QVkDeviceResource {
