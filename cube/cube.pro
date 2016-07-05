@@ -1,8 +1,7 @@
 CONFIG += c++11
 QT += widgets gui gui-private
 # FIXME paths...
-INCLUDEPATH += $$PWD/../../Vulkan-LoaderAndValidationLayers/include
-LIBS += -lvulkan -L$$PWD/../../Vulkan-LoaderAndValidationLayers/dbuild/loader -lxcb
+LIBS += -lvulkan -lxcb
 QMAKE_CXXFLAGS += -g -O -Wall  -pedantic  \
     -pedantic-errors -Wextra  -Wcast-align \
     -Wcast-qual  -Wchar-subscripts -Wcomment -Wconversion \
@@ -34,11 +33,13 @@ QMAKE_CXXFLAGS += -g -O -Wall  -pedantic  \
 SOURCES += \
     cube.cpp \
     qvulkanview.cpp \
-    qvkutil.cpp
+    qvkutil.cpp \
+    qvulkanbuffer.cpp
 
 HEADERS += \
     cube.h \
     qvkcmdbuf.h \
     qvkutil.h \
-    qvulkanview.h
+    qvulkanview.h \
+    qvulkanbuffer.h
 

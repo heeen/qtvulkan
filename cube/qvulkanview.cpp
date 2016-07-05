@@ -38,36 +38,13 @@
 
 #include <QtMath>
 #include <qpa/qplatformnativeinterface.h>
-#include "cubemesh.h"
 
 #include "qvkcmdbuf.h"
 
 static PFN_vkGetDeviceProcAddr g_gdpa = nullptr;
 
 static const char *tex_files[] = {"lunarg.ppm"};
-
-
-
-
-MeshData makeCube() {
-    MeshData mesh;
-    int numverts = 6*6;
-    mesh.pos.reserve(numverts);
-    mesh.uv.reserve(numverts);
-
-    for(int i=0; i < numverts; i++) {
-        mesh.pos<<QVector3D(
-                g_vertex_buffer_data[i*3+0],
-                g_vertex_buffer_data[i*3+1],
-                g_vertex_buffer_data[i*3+2]);
-
-        mesh.uv<<QVector2D(
-                g_uv_buffer_data[i*2+0],
-                g_uv_buffer_data[i*2+1]);
-    }
-
-    return mesh;
-}
+uint32_t ScopeDebug::stack = 0;
 
 
 VKAPI_ATTR VkBool32 VKAPI_CALL
@@ -92,56 +69,15 @@ BreakCallback(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
     return false;
 }
 
-class ScopeDebug {
-public:
-    ScopeDebug(const char* func) : f(func){
-        operator ()(">>> %s", f);
-        stack++;
-    }
-    ~ScopeDebug() {
-        stack--;
-        operator ()("<<< %s", f);
-    }
-    // 2 format is actually arg no. 2 because of this ptr?
-    void operator() (const char *__format, ...) __attribute__ ((format (printf, 2, 3))) {
-        va_list arglist;
-        va_start(arglist,__format);
-        for(uint32_t i=0; i< stack;i++) fputs("  ", stdout);
-        vprintf(__format, arglist);
-        va_end(arglist);
-        fputs("\n",stdout);
-    }
-    static uint32_t stack;
-    const char* f;
-    ScopeDebug(const ScopeDebug&) = delete;
-    ScopeDebug operator=(const ScopeDebug&) = delete;
-
-};
-uint32_t ScopeDebug::stack = 0;
-
-
-#if 0
-#define DEBUG_ENTRY ScopeDebug DBG(__PRETTY_FUNCTION__);
-#else
-#define DEBUG_ENTRY {}
-#define DBG(...)
-#endif
-
-
 
 QVulkanView::QVulkanView()
 {
     DEBUG_ENTRY;
-    m_cube = makeCube();
 
-    QVector3D eye(0.0f, 3.0f, 5.0f);
-    QVector3D origin(0, 0, 0);
-    QVector3D up(0.0f, 1.0f, 0.0);
+    init_vk();
+    init_vk_swapchain();
+    prepare();
 
-    m_projection_matrix.perspective(45.0f, 1.0f, 0.1f, 100.0f);
-    m_view_matrix.lookAt(eye, origin, up);
-    m_model_matrix = QMatrix();
-    m_fpsTimer.start();
 }
 
 QVulkanView::~QVulkanView()
@@ -172,9 +108,6 @@ QVulkanView::~QVulkanView()
     vkDestroyImageView(m_device, m_depth.view, nullptr);
     vkDestroyImage(m_device, m_depth.image, nullptr);
     vkFreeMemory(m_device, m_depth.mem, nullptr);
-
-    vkDestroyBuffer(m_device, m_uniform_data.buf, nullptr);
-    vkFreeMemory(m_device, m_uniform_data.mem, nullptr);
 
     for (int i = 0; i < m_buffers.count(); i++) {
         vkDestroyImageView(m_device, m_buffers[i].view, nullptr);
@@ -323,64 +256,11 @@ void QVulkanView::set_image_layout(VkImage image,
                          nullptr, 1, pmemory_barrier);
 }
 
-void QVulkanView::draw_build_cmd(VkCommandBuffer cmd_buf) {
+/*void QVulkanView::draw_build_cmd(VkCommandBuffer cmd_buf) {
+
     DEBUG_ENTRY;
-
-    QVkCommandBufferRecorder br(cmd_buf);
-
-    br.beginRenderPass(m_render_pass,
-                       m_framebuffers[m_current_buffer],
-                       QVkRect(0, 0, width(), height()));
-
-    br.bindPipeline(m_pipeline);
-    br.bindDescriptorSet(m_pipeline_layout, &m_desc_set);
-
-    br.viewport(QVkViewport((float)width(), (float)height()));
-    br.scissor(QRect(0, 0, qMax(0, width()), qMax(0, height())));
-    br.draw(m_cube.pos.size());
-    br.endRenderPass();
-
-    VkImageMemoryBarrier prePresentBarrier = {};
-    prePresentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    prePresentBarrier.pNext = nullptr;
-    prePresentBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    prePresentBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-    prePresentBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    prePresentBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    prePresentBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    prePresentBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    prePresentBarrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    prePresentBarrier.image = m_buffers[m_current_buffer].image;
-
-    br.pipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                       VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-                       0, &prePresentBarrier);
-
 }
-
-void QVulkanView::update_data_buffer() {
-    DEBUG_ENTRY;
-    QMatrix4x4 MVP, VP;
-    int matrixSize = 16 * sizeof(float);
-    uint8_t *pData;
-    VkResult U_ASSERT_ONLY err;
-
-    VP = m_projection_matrix * m_view_matrix;
-
-    // Rotate 22.5 degrees around the Y axis
-    m_model_matrix.rotate(0.1f, QVector3D(0.0f, 1.0f, 0.0f));
-
-    MVP = VP * m_model_matrix;
-
-    err = vkMapMemory(m_device, m_uniform_data.mem, 0,
-                      m_uniform_data.mem_alloc.allocationSize, 0,
-                      (void **)&pData);
-    Q_ASSERT(!err);
-
-    memcpy(pData, (const void *)MVP.data(), matrixSize);
-
-    vkUnmapMemory(m_device, m_uniform_data.mem);
-}
+*/
 
 void QVulkanView::draw() {
     DEBUG_ENTRY;
@@ -911,18 +791,18 @@ void QVulkanView::prepare_textures() {
     }
 }
 
-void QVulkanView::prepare_cube_data_buffer() {
+/*void QVulkanView::prepare_cube_data_buffer() {
     DEBUG_ENTRY;
 
     uint8_t *pData;
-    QMatrix4x4 MVP, VP;
+//    QMatrix4x4 MVP, VP;
     VkResult U_ASSERT_ONLY err;
     bool U_ASSERT_ONLY pass;
     struct vktexcube_vs_uniform data;
 
-    VP = m_projection_matrix * m_view_matrix;
-    MVP = VP * m_model_matrix;
-    memcpy(data.mvp, &MVP, sizeof(data.mvp));
+//    VP = m_projection_matrix * m_view_matrix;
+//    MVP = VP * m_model_matrix;
+//    memcpy(data.mvp, &MVP, sizeof(data.mvp));
 
     for (int i = 0; i < m_cube.pos.size(); i++) {
         data.position[i] = QVector4D(m_cube.pos[i], 1.0f);
@@ -968,7 +848,7 @@ void QVulkanView::prepare_cube_data_buffer() {
     m_uniform_data.buffer_info.buffer = m_uniform_data.buf;
     m_uniform_data.buffer_info.offset = 0;
     m_uniform_data.buffer_info.range = sizeof(data);
-}
+}*/
 
 void QVulkanView::prepare_descriptor_layout() {
     DEBUG_ENTRY;
@@ -1216,7 +1096,7 @@ void QVulkanView::prepare_descriptor_pool() {
     Q_ASSERT(!err);
 }
 
-void QVulkanView::prepare_descriptor_set() {
+/*void QVulkanView::prepare_descriptor_set() {
     DEBUG_ENTRY;
 
     VkDescriptorSetAllocateInfo alloc_info = {};
@@ -1252,7 +1132,7 @@ void QVulkanView::prepare_descriptor_set() {
     writes[1].pImageInfo = tex_descs;
 
     vkUpdateDescriptorSets(m_device, 2, writes, 0, nullptr);
-}
+}*/
 
 void QVulkanView::prepare_framebuffers() {
     DEBUG_ENTRY;
@@ -1281,23 +1161,6 @@ void QVulkanView::prepare_framebuffers() {
     }
 }
 
-void QVulkanView::redraw()
-{
-    static uint32_t f = 0;
-    f++;
-    if(f == 100) {
-        qDebug()<<(float)f / (float)m_fpsTimer.elapsed() * 1000.0f;
-        f=0;
-        m_fpsTimer.restart();
-
-    }
-
-    // Wait for work to finish before updating MVP.
-    vkDeviceWaitIdle(m_device);
-    update_data_buffer();
-    draw();
-}
-
 void QVulkanView::prepare() {
     DEBUG_ENTRY;
 
@@ -1317,7 +1180,7 @@ void QVulkanView::prepare() {
     prepare_buffers();
     prepare_depth();
     prepare_textures();
-    prepare_cube_data_buffer();
+//    prepare_cube_data_buffer();
 
     prepare_descriptor_layout();
     prepare_render_pass();
@@ -1336,13 +1199,14 @@ void QVulkanView::prepare() {
     }
 
     prepare_descriptor_pool();
-    prepare_descriptor_set();
+//    prepare_descriptor_set();
+    prepareDescriptorSet();
 
     prepare_framebuffers();
 
     for (int i = 0; i < m_buffers.count(); i++) {
         m_current_buffer = i;
-        draw_build_cmd(m_buffers[i].cmd);
+        buildDrawCommand(m_buffers[i].cmd);
     }
 
     /*
@@ -1390,9 +1254,6 @@ void QVulkanView::resize_vk() {
     vkDestroyImage(m_device, m_depth.image, nullptr);
     vkFreeMemory(m_device, m_depth.mem, nullptr);
 
-    vkDestroyBuffer(m_device, m_uniform_data.buf, nullptr);
-    vkFreeMemory(m_device, m_uniform_data.mem, nullptr);
-
     for (int i = 0; i < m_buffers.count(); i++) {
         vkDestroyImageView(m_device, m_buffers[i].view, nullptr);
         vkFreeCommandBuffers(m_device, m_cmd_pool, 1, &m_buffers[i].cmd);
@@ -1432,7 +1293,8 @@ void QVulkanView::resizeEvent(QResizeEvent *e)
     DEBUG_ENTRY;
 
     resize_vk();
-    draw();
+    if(isVisible())
+        draw();
     e->accept(); //FIXME?
     QWindow::resizeEvent(e);
 }
@@ -1549,7 +1411,7 @@ void QVulkanView::init_vk() {
         dbgCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
         dbgCreateInfo.pNext = nullptr;
         dbgCreateInfo.pfnCallback = m_use_break ? BreakCallback : dbgFunc;
-        dbgCreateInfo.pUserData = nullptr;
+        dbgCreateInfo.pUserData = this;
         dbgCreateInfo.flags =
             VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
         // | VK_DEBUG_REPORT_INFORMATION_BIT_EXT;
@@ -1664,7 +1526,7 @@ void QVulkanView::init_vk() {
         dbgCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
         dbgCreateInfo.pNext = nullptr;
         dbgCreateInfo.pfnCallback = callback;
-        dbgCreateInfo.pUserData = nullptr;
+        dbgCreateInfo.pUserData = this;
         dbgCreateInfo.flags =
             VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
         //| VK_DEBUG_REPORT_INFORMATION_BIT_EXT;
@@ -1857,7 +1719,6 @@ void QVulkanView::init_vk_swapchain() {
     }
     m_color_space = surfFormats[0].colorSpace;
 
-    m_quit = false;
     m_curFrame = 0;
 
     // Get Memory information and properties
@@ -1872,12 +1733,12 @@ QVulkanView::dbgFunc(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
     Q_UNUSED(objType)
     Q_UNUSED(srcObject)
     Q_UNUSED(location)
-    Q_UNUSED(pUserData)
 
     QVulkanView* view = (QVulkanView*) pUserData;
     view->m_validationError = true;
 
-    QDebug q(qDebug());
+    {
+        QDebug q(qDebug());
 
     if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
         q<<"ERROR";
@@ -1888,6 +1749,7 @@ QVulkanView::dbgFunc(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
     }
 
     q<<": ["<<pLayerPrefix<<"] Code"<<msgCode<<pMsg;
+    }
     /*
      * false indicates that layer should not bail-out of an
      * API call that had validation failures. This may mean that the
@@ -1895,5 +1757,6 @@ QVulkanView::dbgFunc(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
      * That's what would happen without validation layers, so we'll
      * keep that behavior here.
      */
+    abort();
     return false;
 }

@@ -5,6 +5,9 @@
 #include <QMatrix4x4>
 #include <QElapsedTimer>
 #include <QVector>
+#include <QVector2D>
+#include <QVector3D>
+#include <QVector4D>
 
 #include <vulkan/vulkan.h>
 #include "qvkcmdbuf.h"
@@ -61,7 +64,7 @@ public:
     void prepare_pipeline();
     void prepare();
     void draw();
-    void draw_build_cmd(VkCommandBuffer cmd_buf);
+//    void draw_build_cmd(VkCommandBuffer cmd_buf);
     void prepare_texture_image(const char *filename, texture_object *tex_obj, VkImageTiling tiling, VkImageUsageFlags usage, VkFlags required_props);
     void prepare_textures();
     void prepare_depth();
@@ -71,23 +74,29 @@ public:
     void prepare_render_pass();
     void flush_init_cmd();
     void set_image_layout(VkImage image, VkImageAspectFlags aspectMask, VkImageLayout old_image_layout, VkImageLayout new_image_layout, VkAccessFlagBits srcAccessMask);
-    void update_data_buffer();
     void prepare_buffers();
     bool memory_type_from_properties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex);
     void prepare_descriptor_pool();
-    void prepare_descriptor_set();
+//    void prepare_descriptor_set();
     void prepare_framebuffers();
 
     VkShaderModule createShaderModule(QString filename);
 
     bool validationError() { return m_validationError; }
+    inline VkDevice& device() { return m_device; }
 public slots:
     void redraw();
 
 private:
+protected:
     // we don't support copying
     QVulkanView(const QVulkanView&) = delete;
-    QVulkanView operator=(const QVulkanView&) = delete;
+    QVulkanView& operator=(const QVulkanView&) = delete;
+
+    virtual void prepareDescriptorSet() {}
+    virtual void buildDrawCommand(VkCommandBuffer cmd_buf) {
+        Q_UNUSED(cmd_buf);
+    }
 
     VkSurfaceKHR m_surface      { nullptr };
     bool m_prepared             { false };
@@ -125,13 +134,6 @@ private:
 
     struct texture_object m_textures[DEMO_TEXTURE_COUNT] {};
 
-    struct {
-        VkBuffer buf;
-        VkMemoryAllocateInfo mem_alloc;
-        VkDeviceMemory mem;
-        VkDescriptorBufferInfo buffer_info;
-    } m_uniform_data  {};
-
      // Buffer for initialization commands
     VkCommandBuffer m_cmd               {nullptr};
     VkPipelineLayout m_pipeline_layout  {nullptr};
@@ -141,19 +143,11 @@ private:
     VkPipeline m_pipeline               {nullptr};
     uint32_t m_current_buffer           {0};
 
-    QMatrix4x4 m_projection_matrix  {};
-    QMatrix4x4 m_view_matrix        {};
-    QMatrix4x4 m_model_matrix       {};
 
-    float m_spin_angle  {0.1f};
-    float m_spin_increment  {0.1f};
-    bool m_pause {false};
 
     VkDescriptorPool m_desc_pool  {nullptr};
     VkDescriptorSet m_desc_set  {nullptr};
 
-
-    bool m_quit { false };
     int32_t m_curFrame  {0};
     int32_t m_frameCount  {INT32_MAX};
     bool m_validate { true };
@@ -174,8 +168,6 @@ private:
     PFN_vkAcquireNextImageKHR fpAcquireNextImageKHR     {nullptr};
     PFN_vkQueuePresentKHR fpQueuePresentKHR             {nullptr};
 
-    QElapsedTimer m_fpsTimer {};
-    MeshData m_cube;
     bool m_validationError { false };
     static VKAPI_ATTR VkBool32 VKAPI_CALL
     dbgFunc(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,

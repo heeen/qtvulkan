@@ -3,6 +3,7 @@
 
 #include "qvkutil.h"
 #include <vulkan/vulkan.h>
+#include <QColor>
 
 class QVkCommandBuffer: public QVkDeviceResource {
 public:
@@ -40,6 +41,7 @@ public:
             VkCommandBufferUsageFlags flags = 0)
         : m_cb(cb)
     {
+        qDebug()<<__PRETTY_FUNCTION__<<m_cb;
         VkCommandBufferBeginInfo info = {};
         info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         info.flags = flags;
@@ -48,6 +50,7 @@ public:
     }
 
     ~QVkCommandBufferRecorder() {
+        qDebug()<<__PRETTY_FUNCTION__<<m_cb;
         VkResult err = vkEndCommandBuffer(m_cb);
         Q_ASSERT(!err);
     }
@@ -84,13 +87,14 @@ public:
     QVkCommandBufferRecorder& beginRenderPass(
             VkRenderPass renderpass,
             VkFramebuffer framebuffer,
-            QVkRect area) {
+            QVkRect area,
+            QColor clearColor) {
 
         VkClearValue clear_values[2] = {{},{}};
-        clear_values[0].color.float32[0] = 0.2f;
-        clear_values[0].color.float32[1] = 0.2f;
-        clear_values[0].color.float32[2] = 0.4f;
-        clear_values[0].color.float32[3] = 0.2f;
+        clear_values[0].color.float32[0] = (float)clearColor.redF();
+        clear_values[0].color.float32[1] = (float)clearColor.greenF();
+        clear_values[0].color.float32[2] = (float)clearColor.blueF();
+        clear_values[0].color.float32[3] = (float)clearColor.alphaF();
         clear_values[1].depthStencil = {1.0f, 0};
 
         VkRenderPassBeginInfo rp_begin = {};

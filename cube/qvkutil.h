@@ -48,6 +48,7 @@ struct QVkViewport: public VkViewport {
 class QVkDeviceResource {
 public:
     QVkDeviceResource(VkDevice dev): m_device(dev) {}
+    VkDevice device() { return m_device; }
 protected:
     VkDevice m_device;
 };
@@ -70,6 +71,39 @@ QVector<VKTYPE> getVk(VKFUNC getter) {
     return ret;
 }
 
+class ScopeDebug {
+public:
+    ScopeDebug(const char* func) : f(func){
+        operator ()(">>> %s", f);
+        stack++;
+    }
+    ~ScopeDebug() {
+        stack--;
+        operator ()("<<< %s", f);
+    }
+    // 2 format is actually arg no. 2 because of this ptr?
+    void operator() (const char *__format, ...) __attribute__ ((format (printf, 2, 3))) {
+        va_list arglist;
+        va_start(arglist,__format);
+        for(uint32_t i=0; i< stack;i++) fputs("  ", stdout);
+        vprintf(__format, arglist);
+        va_end(arglist);
+        fputs("\n",stdout);
+    }
+    static uint32_t stack;
+    const char* f;
+    ScopeDebug(const ScopeDebug&) = delete;
+    ScopeDebug operator=(const ScopeDebug&) = delete;
+
+};
+
+
+#if 1
+#define DEBUG_ENTRY ScopeDebug DBG(__PRETTY_FUNCTION__);
+#else
+#define DEBUG_ENTRY {}
+#define DBG(...)
+#endif
 
 
 #endif // QVKUTIL_H
