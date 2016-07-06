@@ -162,18 +162,21 @@ public:
         return *this;
     }
 
-    QVkCommandBufferRecorder& transformImage(QVkImage image,
-                                             VkImageAspectFlags aspectMask,
+    QVkCommandBufferRecorder& transformImage(VkImage image,
+                                             VkImageLayout fromLayout,
                                              VkImageLayout toLayout,
+                                             VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                                              VkAccessFlags srcAccess = 0,
                                              VkAccessFlags dstAccess = 0) {
 
+        DEBUG_ENTRY;
+        DBG("image %p from %i to %i\n", (void*)image, fromLayout, toLayout);
         VkImageMemoryBarrier barrier = {};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
         barrier.pNext = nullptr;
         barrier.srcAccessMask = srcAccess;
         barrier.dstAccessMask = dstAccess;
-        barrier.oldLayout = image.layout();
+        barrier.oldLayout = fromLayout;
         barrier.newLayout = toLayout;
         barrier.image = image;
         barrier.subresourceRange = {aspectMask, 0, 1, 0, 1};
@@ -235,15 +238,13 @@ public:
     }
     operator VkCommandBuffer& () { return m_cmdbuf; }
 
-    QVkCommandBufferRecorder record(VkCommandBufferUsageFlags flags) {
+    QVkCommandBufferRecorder record(VkCommandBufferUsageFlags flags = 0) {
         return QVkCommandBufferRecorder(m_cmdbuf, flags);
     }
 
 private:
     VkCommandPool m_pool;
     VkCommandBuffer m_cmdbuf;
-    QVkCommandBuffer& operator=(const QVkCommandBuffer&) = delete;
-    QVkCommandBuffer(const QVkCommandBuffer&) = delete;
 };
 
 
@@ -268,6 +269,8 @@ public:
     }
 
     void submit(VkCommandBuffer cmdbuf) {
+        DEBUG_ENTRY;
+        DBG("submitting buffer: %p\n", (void*)cmdbuf);
         VkFence nullFence = nullptr;
         VkSubmitInfo submit_info = {};
         submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;

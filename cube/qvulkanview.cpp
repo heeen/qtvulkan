@@ -187,6 +187,7 @@ void QVulkanView::set_image_layout(VkImage image,
                                   VkImageLayout new_image_layout,
                                   VkAccessFlagBits srcAccessMask) {
     DEBUG_ENTRY;
+    DBG("image %p from %x to %x\n", (void*) image, old_image_layout, new_image_layout);
     VkResult U_ASSERT_ONLY err;
 
     if (m_cmd == nullptr) {
@@ -295,12 +296,10 @@ void QVulkanView::draw() {
 
     // Assume the command buffer has been run on current_buffer before so
     // we need to set the image layout back to COLOR_ATTACHMENT_OPTIMAL
-    QVkImage img(m_device, m_buffers[m_current_buffer].image);
     QVkCommandBuffer cmd(m_device, m_cmd_pool);
-    {
-        QVkCommandBufferRecorder cbr(cmd);
-        cbr.transformImage(img, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    }
+    cmd.record()
+        .transformImage(m_buffers[m_current_buffer].image,
+                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     m_queue.submit(cmd);
     m_queue.waitIdle();
 
@@ -461,7 +460,7 @@ void QVulkanView::prepare_buffers() {
 
     QVkCommandBuffer cmd(m_device, m_cmd_pool);
     {
-    QVkCommandBufferRecorder cbr(cmd);
+    auto cbr=cmd.record();
 
     for (int i = 0; i < m_buffers.count(); i++) {
         VkImageViewCreateInfo color_image_view = {};
@@ -488,14 +487,8 @@ void QVulkanView::prepare_buffers() {
         // VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
         // layout and will change to COLOR_ATTACHMENT_OPTIMAL, so init the image
         // to that state
-        QVkImage img(m_device, m_buffers[i].image);
-        cbr.transformImage(img, VK_IMAGE_ASPECT_COLOR_BIT,
-                           VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-
-/*        set_image_layout(
-            m_buffers[i].image, VK_IMAGE_ASPECT_COLOR_BIT,
-            VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-            (VkAccessFlagBits)0);*/
+        cbr.transformImage(m_buffers[i].image,
+                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
         color_image_view.image = m_buffers[i].image;
 
@@ -547,6 +540,7 @@ void QVulkanView::prepare_depth() {
 
     /* create image */
     err = vkCreateImage(m_device, &image, nullptr, &m_depth.image);
+    qDebug()<<"depth image is"<<m_depth.image;
     Q_ASSERT(!err);
 
     vkGetImageMemoryRequirements(m_device, m_depth.image, &mem_reqs);
@@ -1118,7 +1112,7 @@ void QVulkanView::prepare() {
      * Prepare functions above may generate pipeline commands
      * that need to be flushed before beginning the render loop.
      */
-    //flush_init_cmd();
+    flush_init_cmd();
 
     m_current_buffer = 0;
     m_prepared = true;
@@ -1664,6 +1658,7 @@ QVulkanView::dbgFunc(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
     } else if (msgFlags & VK_DEBUG_REPORT_WARNING_BIT_EXT) {
         q<<"WARNING";
     } else {
+        q<<"INFO: ["<<pLayerPrefix<<"] Code"<<msgCode<<pMsg;
         return false;
     }
 

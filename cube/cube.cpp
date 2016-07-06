@@ -104,21 +104,19 @@ void CubeDemo::buildDrawCommand(VkCommandBuffer cmd_buf)
     QVkCommandBufferRecorder br(cmd_buf);
 
     static int i=0;
-    i+=10;
+    i+=20;
     QColor clear = QColor(40,40,i);
 
     br.beginRenderPass(m_render_pass,
                        m_framebuffers[m_current_buffer],
                        QVkRect(0, 0, width(), height()),
-                       clear);
-
-    br.bindPipeline(m_pipeline);
-    br.bindDescriptorSet(m_pipeline_layout, &m_desc_set);
-
-    br.viewport(QVkViewport((float)width(), (float)height()));
-    br.scissor(QRect(0, 0, qMax(0, width()), qMax(0, height())));
-    br.draw(m_cube.pos.size());
-    br.endRenderPass();
+                       clear)
+        .bindPipeline(m_pipeline)
+        .bindDescriptorSet(m_pipeline_layout, &m_desc_set)
+        .viewport(QVkViewport((float)width(), (float)height()))
+        .scissor(QRect(0, 0, qMax(0, width()), qMax(0, height())))
+        .draw(m_cube.pos.size())
+        .endRenderPass();
 
     VkImageMemoryBarrier prePresentBarrier = {};
     prePresentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;

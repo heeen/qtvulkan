@@ -47,10 +47,14 @@ struct QVkViewport: public VkViewport {
 
 class QVkDeviceResource {
 public:
-    QVkDeviceResource(VkDevice dev): m_device(dev) {}
+    QVkDeviceResource(VkDevice dev)
+        : m_device(dev)
+    { }
     VkDevice device() { return m_device; }
 protected:
     VkDevice m_device;
+//    QVkDeviceResource& operator=(const QVkDeviceResource&) = delete;
+    QVkDeviceResource(const QVkDeviceResource&) = delete;
 };
 
 VkFormat QtFormat2vkFormat(QImage::Format f);
