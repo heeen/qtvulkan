@@ -45,8 +45,8 @@ CubeDemo::CubeDemo()
         buildDrawCommand(m_buffers[i].cmd);
     }
 
-    //FIXME make cube mesh a proper vertex buffer
-    //not this stupid uniform hack
+    // FIXME: make cube mesh a proper vertex buffer
+    // not this stupid uniform hack
     auto* data = m_uniformBuffer.map();
     for (int i = 0; i < m_cube.pos.size(); i++) {
         data->position[i] = QVector4D(m_cube.pos[i], 1.0f);

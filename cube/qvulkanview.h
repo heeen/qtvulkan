@@ -64,7 +64,6 @@ public:
     void prepare_pipeline();
     void prepare();
     void draw();
-//    void draw_build_cmd(VkCommandBuffer cmd_buf);
     void prepare_texture_image(const char *filename, texture_object *tex_obj, VkImageTiling tiling, VkImageUsageFlags usage, VkFlags required_props);
     void prepare_textures();
     void prepare_depth();
@@ -77,7 +76,6 @@ public:
     void prepare_buffers();
     bool memory_type_from_properties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex);
     void prepare_descriptor_pool();
-//    void prepare_descriptor_set();
     void prepare_framebuffers();
 
     VkShaderModule createShaderModule(QString filename);
@@ -105,7 +103,7 @@ protected:
     VkInstance m_inst       {nullptr};
     VkPhysicalDevice m_gpu  {nullptr};
     VkDevice m_device       {nullptr};
-    VkQueue m_queue         {nullptr};
+    QVkQueue m_queue;
     uint32_t m_graphics_queue_node_index                    {0};
     VkPhysicalDeviceProperties m_gpu_props                  {};
     QVector<VkQueueFamilyProperties> m_queueProps           {};

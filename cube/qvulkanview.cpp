@@ -76,6 +76,7 @@ QVulkanView::QVulkanView()
 
     init_vk();
     init_vk_swapchain();
+    m_queue = QVkQueue(m_device, m_graphics_queue_node_index);
     prepare();
 }
 
@@ -233,28 +234,23 @@ void QVulkanView::set_image_layout(VkImage image,
     }
 
     if (new_image_layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-        image_memory_barrier.dstAccessMask =
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        image_memory_barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     }
 
     if (new_image_layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-        image_memory_barrier.dstAccessMask =
-            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        image_memory_barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
     }
 
     if (new_image_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
         /* Make sure any Copy or CPU writes to image are flushed */
-        image_memory_barrier.dstAccessMask =
-            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+        image_memory_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
     }
-
-    VkImageMemoryBarrier *pmemory_barrier = &image_memory_barrier;
 
     VkPipelineStageFlags src_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     VkPipelineStageFlags dest_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 
     vkCmdPipelineBarrier(m_cmd, src_stages, dest_stages, 0, 0, nullptr, 0,
-                         nullptr, 1, pmemory_barrier);
+                         nullptr, 1, &image_memory_barrier);
 }
 
 /*void QVulkanView::draw_build_cmd(VkCommandBuffer cmd_buf) {
@@ -299,12 +295,14 @@ void QVulkanView::draw() {
 
     // Assume the command buffer has been run on current_buffer before so
     // we need to set the image layout back to COLOR_ATTACHMENT_OPTIMAL
-    set_image_layout(m_buffers[m_current_buffer].image,
-                          VK_IMAGE_ASPECT_COLOR_BIT,
-                          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                          (VkAccessFlagBits)0);
-    flush_init_cmd();
+    QVkImage img(m_device, m_buffers[m_current_buffer].image);
+    QVkCommandBuffer cmd(m_device, m_cmd_pool);
+    {
+        QVkCommandBufferRecorder cbr(cmd);
+        cbr.transformImage(img, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    }
+    m_queue.submit(cmd);
+    m_queue.waitIdle();
 
     // Wait for the present complete semaphore to be signaled to ensure
     // that the image won't be rendered to until the presentation
@@ -461,6 +459,10 @@ void QVulkanView::prepare_buffers() {
 
     m_buffers.resize(swapchainImages.count());
 
+    QVkCommandBuffer cmd(m_device, m_cmd_pool);
+    {
+    QVkCommandBufferRecorder cbr(cmd);
+
     for (int i = 0; i < m_buffers.count(); i++) {
         VkImageViewCreateInfo color_image_view = {};
         color_image_view.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -486,16 +488,23 @@ void QVulkanView::prepare_buffers() {
         // VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
         // layout and will change to COLOR_ATTACHMENT_OPTIMAL, so init the image
         // to that state
-        set_image_layout(
+        QVkImage img(m_device, m_buffers[i].image);
+        cbr.transformImage(img, VK_IMAGE_ASPECT_COLOR_BIT,
+                           VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+/*        set_image_layout(
             m_buffers[i].image, VK_IMAGE_ASPECT_COLOR_BIT,
             VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-            (VkAccessFlagBits)0);
+            (VkAccessFlagBits)0);*/
 
         color_image_view.image = m_buffers[i].image;
 
         err = vkCreateImageView(m_device, &color_image_view, nullptr, &m_buffers[i].view);
         Q_ASSERT(!err);
     }
+    }
+    m_queue.submit(cmd);
+    m_queue.waitIdle();
 }
 
 void QVulkanView::prepare_depth() {
@@ -1109,7 +1118,7 @@ void QVulkanView::prepare() {
      * Prepare functions above may generate pipeline commands
      * that need to be flushed before beginning the render loop.
      */
-    flush_init_cmd();
+    //flush_init_cmd();
 
     m_current_buffer = 0;
     m_prepared = true;
@@ -1607,8 +1616,10 @@ void QVulkanView::init_vk_swapchain() {
     GET_DEVICE_PROC_ADDR(m_device, GetSwapchainImagesKHR);
     GET_DEVICE_PROC_ADDR(m_device, AcquireNextImageKHR);
     GET_DEVICE_PROC_ADDR(m_device, QueuePresentKHR);
+    QVkQueue::fpQueuePresentKHR = fpQueuePresentKHR; // ugh!
 
-    vkGetDeviceQueue(m_device, m_graphics_queue_node_index, 0, &m_queue);
+
+//    vkGetDeviceQueue(m_device, m_graphics_queue_node_index, 0, &m_queue);
 
     // Get the list of VkFormat's that are supported:
     auto getSurfForm = [this](uint32_t *c, VkSurfaceFormatKHR* d) {

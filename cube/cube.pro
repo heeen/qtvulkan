@@ -34,12 +34,15 @@ SOURCES += \
     cube.cpp \
     qvulkanview.cpp \
     qvkutil.cpp \
-    qvulkanbuffer.cpp
+    qvulkanbuffer.cpp \
+    qvkcmdbuf.cpp \
+    qvkimage.cpp
 
 HEADERS += \
     cube.h \
     qvkcmdbuf.h \
     qvkutil.h \
     qvulkanview.h \
-    qvulkanbuffer.h
+    qvulkanbuffer.h \
+    qvkimage.h
 
