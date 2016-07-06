@@ -12,6 +12,7 @@ public:
         , m_pool(pool)
         , m_cmdbuf {}
     {
+        DEBUG_ENTRY;
         VkResult err;
         VkCommandBufferAllocateInfo cmd_buf_ai = {};
         cmd_buf_ai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -23,6 +24,7 @@ public:
         Q_ASSERT(!err);
     }
     ~QVkCommandBuffer(){
+        DEBUG_ENTRY;
         vkFreeCommandBuffers(m_device, m_pool, 1, &m_cmdbuf);
     }
     operator VkCommandBuffer& () { return m_cmdbuf; }
@@ -41,7 +43,7 @@ public:
             VkCommandBufferUsageFlags flags = 0)
         : m_cb(cb)
     {
-        qDebug()<<__PRETTY_FUNCTION__<<m_cb;
+        DEBUG_ENTRY;
         VkCommandBufferBeginInfo info = {};
         info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         info.flags = flags;
@@ -50,7 +52,7 @@ public:
     }
 
     ~QVkCommandBufferRecorder() {
-        qDebug()<<__PRETTY_FUNCTION__<<m_cb;
+        DEBUG_ENTRY;
         VkResult err = vkEndCommandBuffer(m_cb);
         Q_ASSERT(!err);
     }
@@ -89,6 +91,7 @@ public:
             VkFramebuffer framebuffer,
             QVkRect area,
             QColor clearColor) {
+        DEBUG_ENTRY;
 
         VkClearValue clear_values[2] = {{},{}};
         clear_values[0].color.float32[0] = (float)clearColor.redF();
@@ -110,11 +113,13 @@ public:
     }
 
     QVkCommandBufferRecorder& endRenderPass() {
+        DEBUG_ENTRY;
         vkCmdEndRenderPass(m_cb);
         return *this;
     }
 
     QVkCommandBufferRecorder& bindPipeline(VkPipeline pipeline) {
+        DEBUG_ENTRY;
         vkCmdBindPipeline(m_cb, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
         return *this;
     }
@@ -125,6 +130,7 @@ public:
                uint32_t         dynamicOffsetCount = 0,
                const uint32_t*  pDynamicOffsets = nullptr
             ) {
+        DEBUG_ENTRY;
         vkCmdBindDescriptorSets(m_cb, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 layout,
                                 0, 1, descSet,
@@ -138,6 +144,7 @@ public:
                 QVector<VkDescriptorSet> sets,
                 QVector<uint32_t> dynamicOffsets
             ) {
+        DEBUG_ENTRY;
         vkCmdBindDescriptorSets(m_cb, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 layout, firstSet,
                                 sets.size(), sets.data(),
@@ -157,6 +164,7 @@ public:
             uint32_t                                    imageMemoryBarrierCount,
             const VkImageMemoryBarrier*                 pImageMemoryBarriers
             ) {
+        DEBUG_ENTRY;
         vkCmdPipelineBarrier(m_cb,
                              srcStageMask, dstStageMask,
                              dependencyFlags,
@@ -173,6 +181,7 @@ public:
             VkDependencyFlags            dependencyFlags,
             const VkImageMemoryBarrier*  pImageMemoryBarrier
             ) {
+        DEBUG_ENTRY;
         vkCmdPipelineBarrier(m_cb,
                              srcStageMask, dstStageMask,
                              dependencyFlags,

@@ -59,6 +59,7 @@ public:
         : QVkDeviceResource(device)
         , m_memory_properties(mem_props)
     {
+        DEBUG_ENTRY;
         VkResult err;
         VkBufferCreateInfo buf_ci = {};
         buf_ci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -92,13 +93,19 @@ public:
         err = vkBindBufferMemory(m_device, m_buffer, m_memory, /*offset*/ 0);
         Q_ASSERT(!err);
 
+        m_descriptorInfo.buffer = m_buffer;
+        m_descriptorInfo.offset = 0;
+        m_descriptorInfo.range = sizeof(UniformStruct);
+
     }
     ~QVkUniformBuffer() {
+        DEBUG_ENTRY;
         vkDestroyBuffer(m_device, m_buffer, nullptr);
         vkFreeMemory(m_device, m_memory, nullptr);
     }
 
     UniformStruct* map() {
+        DEBUG_ENTRY;
         VkResult err;
         UniformStruct* mappedAddr;
         err = vkMapMemory(m_device, m_memory,
@@ -111,10 +118,12 @@ public:
     }
 
     void unmap() {
+        DEBUG_ENTRY;
         vkUnmapMemory(device(), m_memory);
     }
 
     void update() {
+        DEBUG_ENTRY;
         UniformStruct* deviceData = map();
         memcpy(deviceData, m_hostData, sizeof(UniformStruct) );
         unmap();
@@ -143,22 +152,21 @@ public:
         return false;
     }
 
-    operator VkDescriptorBufferInfo() {
-        VkDescriptorBufferInfo info = {};
-        info.buffer = m_buffer;
-        info.offset = 0;
-        info.range = sizeof(UniformStruct);
-        return info;
+    VkDescriptorBufferInfo* descriptorInfo() {
+        DEBUG_ENTRY;
+        return &m_descriptorInfo;
     }
 
 protected:
-    VkBuffer m_buffer;
-    VkDeviceMemory m_memory;
+    VkBuffer m_buffer { };
+    VkDeviceMemory m_memory { };
 
-    VkDeviceSize m_allocationSize;
-    VkPhysicalDeviceMemoryProperties* m_memory_properties;
+    VkDeviceSize m_allocationSize { 0 };
+    VkPhysicalDeviceMemoryProperties* m_memory_properties { nullptr };
 
-    UniformStruct m_hostData;
+    UniformStruct m_hostData { };
+
+    VkDescriptorBufferInfo m_descriptorInfo { };
 
 /*    class Accessor { //FIXME something about move semantics
     public:

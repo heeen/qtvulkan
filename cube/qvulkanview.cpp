@@ -77,7 +77,6 @@ QVulkanView::QVulkanView()
     init_vk();
     init_vk_swapchain();
     prepare();
-
 }
 
 QVulkanView::~QVulkanView()
@@ -111,7 +110,9 @@ QVulkanView::~QVulkanView()
 
     for (int i = 0; i < m_buffers.count(); i++) {
         vkDestroyImageView(m_device, m_buffers[i].view, nullptr);
+        m_buffers[i].view = nullptr;
         vkFreeCommandBuffers(m_device, m_cmd_pool, 1, &m_buffers[i].cmd);
+        m_buffers[i].cmd = nullptr;
     }
 
     vkDestroyCommandPool(m_device, m_cmd_pool, nullptr);
@@ -791,65 +792,6 @@ void QVulkanView::prepare_textures() {
     }
 }
 
-/*void QVulkanView::prepare_cube_data_buffer() {
-    DEBUG_ENTRY;
-
-    uint8_t *pData;
-//    QMatrix4x4 MVP, VP;
-    VkResult U_ASSERT_ONLY err;
-    bool U_ASSERT_ONLY pass;
-    struct vktexcube_vs_uniform data;
-
-//    VP = m_projection_matrix * m_view_matrix;
-//    MVP = VP * m_model_matrix;
-//    memcpy(data.mvp, &MVP, sizeof(data.mvp));
-
-    for (int i = 0; i < m_cube.pos.size(); i++) {
-        data.position[i] = QVector4D(m_cube.pos[i], 1.0f);
-        data.attr[i] = QVector4D(m_cube.uv[i], 0.0f, 0.0f);
-    }
-
-    VkBufferCreateInfo buf_info = {};
-    buf_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    buf_info.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    buf_info.size = sizeof(data);
-    err = vkCreateBuffer(m_device, &buf_info, nullptr, &m_uniform_data.buf);
-    Q_ASSERT(!err);
-    VkMemoryRequirements mem_reqs = {};
-    vkGetBufferMemoryRequirements(m_device, m_uniform_data.buf, &mem_reqs);
-
-    m_uniform_data.mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    m_uniform_data.mem_alloc.pNext = nullptr;
-    m_uniform_data.mem_alloc.allocationSize = mem_reqs.size;
-    m_uniform_data.mem_alloc.memoryTypeIndex = 0;
-
-    pass = memory_type_from_properties(
-        mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-        &m_uniform_data.mem_alloc.memoryTypeIndex);
-    Q_ASSERT(pass);
-
-    err = vkAllocateMemory(m_device, &m_uniform_data.mem_alloc, nullptr,
-                           &(m_uniform_data.mem));
-    Q_ASSERT(!err);
-
-    err = vkMapMemory(m_device, m_uniform_data.mem, 0,
-                      m_uniform_data.mem_alloc.allocationSize, 0,
-                      (void **)&pData);
-    Q_ASSERT(!err);
-
-    memcpy(pData, &data, sizeof data);
-
-    vkUnmapMemory(m_device, m_uniform_data.mem);
-
-    err = vkBindBufferMemory(m_device, m_uniform_data.buf,
-                             m_uniform_data.mem, 0);
-    Q_ASSERT(!err);
-
-    m_uniform_data.buffer_info.buffer = m_uniform_data.buf;
-    m_uniform_data.buffer_info.offset = 0;
-    m_uniform_data.buffer_info.range = sizeof(data);
-}*/
-
 void QVulkanView::prepare_descriptor_layout() {
     DEBUG_ENTRY;
 
@@ -1096,44 +1038,6 @@ void QVulkanView::prepare_descriptor_pool() {
     Q_ASSERT(!err);
 }
 
-/*void QVulkanView::prepare_descriptor_set() {
-    DEBUG_ENTRY;
-
-    VkDescriptorSetAllocateInfo alloc_info = {};
-    alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    alloc_info.pNext = nullptr;
-    alloc_info.descriptorPool = m_desc_pool;
-    alloc_info.descriptorSetCount = 1;
-    alloc_info.pSetLayouts = &m_desc_layout;
-
-    VkResult U_ASSERT_ONLY err;
-    err = vkAllocateDescriptorSets(m_device, &alloc_info, &m_desc_set);
-    Q_ASSERT(!err);
-
-    VkDescriptorImageInfo tex_descs[DEMO_TEXTURE_COUNT] = {};
-    for (uint32_t i = 0; i < DEMO_TEXTURE_COUNT; i++) {
-        tex_descs[i].sampler = m_textures[i].sampler;
-        tex_descs[i].imageView = m_textures[i].view;
-        tex_descs[i].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-    }
-
-    VkWriteDescriptorSet writes[2]={{},{}};
-    writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes[0].dstSet = m_desc_set;
-    writes[0].descriptorCount = 1;
-    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    writes[0].pBufferInfo = &m_uniform_data.buffer_info;
-
-    writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes[1].dstSet = m_desc_set;
-    writes[1].dstBinding = 1;
-    writes[1].descriptorCount = DEMO_TEXTURE_COUNT;
-    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[1].pImageInfo = tex_descs;
-
-    vkUpdateDescriptorSets(m_device, 2, writes, 0, nullptr);
-}*/
-
 void QVulkanView::prepare_framebuffers() {
     DEBUG_ENTRY;
 
@@ -1198,17 +1102,9 @@ void QVulkanView::prepare() {
         Q_ASSERT(!err);
     }
 
-    prepare_descriptor_pool();
-//    prepare_descriptor_set();
-    prepareDescriptorSet();
-
     prepare_framebuffers();
 
-    for (int i = 0; i < m_buffers.count(); i++) {
-        m_current_buffer = i;
-        buildDrawCommand(m_buffers[i].cmd);
-    }
-
+    prepare_descriptor_pool();
     /*
      * Prepare functions above may generate pipeline commands
      * that need to be flushed before beginning the render loop.
@@ -1256,7 +1152,9 @@ void QVulkanView::resize_vk() {
 
     for (int i = 0; i < m_buffers.count(); i++) {
         vkDestroyImageView(m_device, m_buffers[i].view, nullptr);
+        m_buffers[i].view = nullptr;
         vkFreeCommandBuffers(m_device, m_cmd_pool, 1, &m_buffers[i].cmd);
+        m_buffers[i].cmd = nullptr;
     }
     vkDestroyCommandPool(m_device, m_cmd_pool, nullptr);
     m_buffers.clear();
@@ -1264,6 +1162,15 @@ void QVulkanView::resize_vk() {
     // Second, re-perform the demo_prepare() function, which will re-create the
     // swapchain:
     prepare();
+
+    // TODO rethink calling down the inheritance from here
+    // but we need to recreate the draw command buffers
+    // maybe there is no need to destroy them in the first place...
+    prepareDescriptorSet();
+    for (int i = 0; i < m_buffers.count(); i++) {
+        m_current_buffer = i;
+        buildDrawCommand(m_buffers[i].cmd);
+    }
 }
 
 /*
@@ -1293,6 +1200,7 @@ void QVulkanView::resizeEvent(QResizeEvent *e)
     DEBUG_ENTRY;
 
     resize_vk();
+    
     if(isVisible())
         draw();
     e->accept(); //FIXME?

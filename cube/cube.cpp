@@ -4,6 +4,7 @@
 #include "cubemesh.h"
 
 MeshData makeCube() {
+    DEBUG_ENTRY;
     MeshData mesh;
     int numverts = 6*6;
     mesh.pos.reserve(numverts);
@@ -23,10 +24,10 @@ MeshData makeCube() {
     return mesh;
 }
 
-
 CubeDemo::CubeDemo()
     : m_uniformBuffer(device(), &m_memory_properties)
 {
+    DEBUG_ENTRY;
     QVector3D eye(0.0f, 3.0f, 5.0f);
     QVector3D origin(0, 0, 0);
     QVector3D up(0.0f, 1.0f, 0.0);
@@ -36,23 +37,32 @@ CubeDemo::CubeDemo()
     m_view_matrix.lookAt(eye, origin, up);
     m_model_matrix = QMatrix();
     m_fpsTimer.start();
+
     prepareDescriptorSet();
     for (int i = 0; i < m_buffers.count(); i++) {
         qDebug()<<"build draw command for buffer"<<i;
         m_current_buffer = i;
         buildDrawCommand(m_buffers[i].cmd);
     }
-    flush_init_cmd();
+
+    //FIXME make cube mesh a proper vertex buffer
+    //not this stupid uniform hack
+    auto* data = m_uniformBuffer.map();
+    for (int i = 0; i < m_cube.pos.size(); i++) {
+        data->position[i] = QVector4D(m_cube.pos[i], 1.0f);
+        data->attr[i] = QVector4D(m_cube.uv[i], 0.0f, 0.0f);
+    }
+    m_uniformBuffer.unmap();
 }
 
 CubeDemo::~CubeDemo()
 {
-
+    DEBUG_ENTRY;
 }
 
 void CubeDemo::prepareDescriptorSet()
 {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
     VkDescriptorSetAllocateInfo alloc_info = {};
     alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     alloc_info.pNext = nullptr;
@@ -71,14 +81,12 @@ void CubeDemo::prepareDescriptorSet()
         tex_descs[i].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
     }
 
-    VkDescriptorBufferInfo uniforms = m_uniformBuffer;
-
     VkWriteDescriptorSet writes[2]={{},{}};
     writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     writes[0].dstSet = m_desc_set;
     writes[0].descriptorCount = 1;
     writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    writes[0].pBufferInfo = &uniforms;
+    writes[0].pBufferInfo = m_uniformBuffer.descriptorInfo();
 
     writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     writes[1].dstSet = m_desc_set;
@@ -92,7 +100,7 @@ void CubeDemo::prepareDescriptorSet()
 
 void CubeDemo::buildDrawCommand(VkCommandBuffer cmd_buf)
 {
-    qDebug()<<__PRETTY_FUNCTION__;
+    DEBUG_ENTRY;
     QVkCommandBufferRecorder br(cmd_buf);
 
     static int i=0;
@@ -127,18 +135,16 @@ void CubeDemo::buildDrawCommand(VkCommandBuffer cmd_buf)
     br.pipelineBarrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
                        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
                        0, &prePresentBarrier);
-
-
 }
 
 void CubeDemo::redraw() {
+    DEBUG_ENTRY;
     static uint32_t f = 0;
     f++;
     if(f == 100) {
         qDebug()<<(float)f / (float)m_fpsTimer.elapsed() * 1000.0f;
         f=0;
         m_fpsTimer.restart();
-
     }
 
     // Wait for work to finish before updating MVP.
@@ -149,6 +155,7 @@ void CubeDemo::redraw() {
 
 void CubeDemo::updateUniforms() {
 
+    DEBUG_ENTRY;
     QMatrix4x4 MVP, VP;
     int matrixSize = 16 * sizeof(float);
 
@@ -164,8 +171,8 @@ void CubeDemo::updateUniforms() {
     m_uniformBuffer.unmap();
 }
 
-
 int main(int argc, char **argv) {
+    DEBUG_ENTRY;
     setvbuf(stdout, nullptr, _IONBF, 0);
 
     QGuiApplication app(argc, argv);

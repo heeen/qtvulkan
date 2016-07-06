@@ -79,7 +79,7 @@ public:
     }
     ~ScopeDebug() {
         stack--;
-        operator ()("<<< %s", f);
+        operator ()("<<<");
     }
     // 2 format is actually arg no. 2 because of this ptr?
     void operator() (const char *__format, ...) __attribute__ ((format (printf, 2, 3))) {
