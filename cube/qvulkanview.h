@@ -11,7 +11,7 @@
 
 #include <vulkan/vulkan.h>
 #include "qvkcmdbuf.h"
-
+#include "qvkinstace.h"
 
 #define DEMO_TEXTURE_COUNT 1
 
@@ -48,7 +48,6 @@ struct vktexcube_vs_uniform {
     QVector4D attr[12 * 3];
 };
 
-typedef QVector<const char*> QVulkanNames;
 
 class QVulkanView : public QWindow {
 public:
@@ -56,8 +55,6 @@ public:
     ~QVulkanView();
     void init_vk();
     void init_vk_swapchain();
-    void create_device();
-    bool containsAllLayers(const QVector<VkLayerProperties> haystack, const QVulkanNames needles);
 
     void resizeEvent(QResizeEvent *) override; // QWindow::resizeEvent
     void resize_vk();
@@ -68,25 +65,33 @@ public:
     void prepare_textures();
     void prepare_depth();
     void destroy_texture_image(texture_object *tex_objs);
-    void prepare_cube_data_buffer();
     void prepare_descriptor_layout();
     void prepare_render_pass();
     void flush_init_cmd();
     void set_image_layout(VkImage image, VkImageAspectFlags aspectMask, VkImageLayout old_image_layout, VkImageLayout new_image_layout, VkAccessFlagBits srcAccessMask);
     void prepare_buffers();
-    bool memory_type_from_properties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex);
     void prepare_descriptor_pool();
     void prepare_framebuffers();
 
     VkShaderModule createShaderModule(QString filename);
 
     bool validationError() { return m_validationError; }
-    inline VkDevice& device() { return m_device; }
+    inline QVkDevice& device() { return m_device; }
 public slots:
     void redraw();
 
 private:
 protected:
+/*    bool nativeEvent(const QByteArray &eventType, void *message, long *result)
+    {
+        qDebug()<<eventType<<message;
+        Q_UNUSED(eventType);
+        Q_UNUSED(message);
+        Q_UNUSED(result);
+        return true;
+    }*/
+
+
     // we don't support copying
     QVulkanView(const QVulkanView&) = delete;
     QVulkanView& operator=(const QVulkanView&) = delete;
@@ -96,21 +101,22 @@ protected:
         Q_UNUSED(cmd_buf);
     }
 
+    QVector<const char*> m_extensionNames           {};
+    QVector<const char*> m_deviceValidationLayers   {};
+    VkPhysicalDeviceProperties m_gpu_props                  {};
+    QVector<VkQueueFamilyProperties> m_queueProps           {};
+
     VkSurfaceKHR m_surface      { nullptr };
     bool m_prepared             { false };
     bool m_use_staging_buffer   { false };
 
-    VkInstance m_inst       {nullptr};
-    VkPhysicalDevice m_gpu  {nullptr};
-    VkDevice m_device       {nullptr};
-    QVkQueue m_queue;
+    QVkInstance m_inst;
+    QVkPhysicalDevice m_gpu;
     uint32_t m_graphics_queue_node_index                    {0};
-    VkPhysicalDeviceProperties m_gpu_props                  {};
-    QVector<VkQueueFamilyProperties> m_queueProps           {};
-    VkPhysicalDeviceMemoryProperties m_memory_properties    {};
+    QVkDevice m_device;
 
-    QVector<const char*> m_extensionNames           {};
-    QVector<const char*> m_deviceValidationLayers   {};
+    QVkQueue m_queue;
+
 
     VkFormat m_format               {};
     VkColorSpaceKHR m_color_space   {};
@@ -141,14 +147,11 @@ protected:
     VkPipeline m_pipeline               {nullptr};
     uint32_t m_current_buffer           {0};
 
-
-
     VkDescriptorPool m_desc_pool  {nullptr};
     VkDescriptorSet m_desc_set  {nullptr};
 
     int32_t m_curFrame  {0};
     int32_t m_frameCount  {INT32_MAX};
-    bool m_validate { true };
     bool m_use_break { false };
     PFN_vkCreateDebugReportCallbackEXT CreateDebugReportCallback  {nullptr};
     PFN_vkDestroyDebugReportCallbackEXT DestroyDebugReportCallback  {nullptr};
@@ -156,15 +159,6 @@ protected:
     PFN_vkDebugReportMessageEXT DebugReportMessage  {nullptr};
 
 
-    PFN_vkGetPhysicalDeviceSurfaceSupportKHR fpGetPhysicalDeviceSurfaceSupportKHR           {nullptr};
-    PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR fpGetPhysicalDeviceSurfaceCapabilitiesKHR {nullptr};
-    PFN_vkGetPhysicalDeviceSurfaceFormatsKHR fpGetPhysicalDeviceSurfaceFormatsKHR           {nullptr};
-    PFN_vkGetPhysicalDeviceSurfacePresentModesKHR fpGetPhysicalDeviceSurfacePresentModesKHR {nullptr};
-    PFN_vkCreateSwapchainKHR fpCreateSwapchainKHR       {nullptr};
-    PFN_vkDestroySwapchainKHR fpDestroySwapchainKHR     {nullptr};
-    PFN_vkGetSwapchainImagesKHR fpGetSwapchainImagesKHR {nullptr};
-    PFN_vkAcquireNextImageKHR fpAcquireNextImageKHR     {nullptr};
-    PFN_vkQueuePresentKHR fpQueuePresentKHR             {nullptr};
 
     bool m_validationError { false };
     static VKAPI_ATTR VkBool32 VKAPI_CALL
@@ -183,18 +177,6 @@ protected:
         }                                                                      \
     }
 
-#define GET_DEVICE_PROC_ADDR(dev, entrypoint)                                  \
-    {                                                                          \
-        if (!g_gdpa)                                                           \
-            g_gdpa = (PFN_vkGetDeviceProcAddr)vkGetInstanceProcAddr(           \
-                m_inst, "vkGetDeviceProcAddr");                            \
-        fp##entrypoint =                                                 \
-            (PFN_vk##entrypoint)g_gdpa(dev, "vk" #entrypoint);                 \
-        if (fp##entrypoint == NULL) {                                    \
-            ERR_EXIT("vkGetDeviceProcAddr failed to find vk" #entrypoint,      \
-                     "vkGetDeviceProcAddr Failure");                           \
-        }                                                                      \
-    }
 
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
@@ -205,7 +187,6 @@ protected:
 #define U_ASSERT_ONLY
 #endif
 
-#define ERR_EXIT(err_msg, err_class) qFatal(err_msg)
 
 
 

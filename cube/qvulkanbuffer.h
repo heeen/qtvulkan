@@ -2,16 +2,17 @@
 #define QVULKANBUFFER_H
 #include <vulkan/vulkan.h>
 #include <qvkutil.h>
-/*
 class QVkDeviceMemory: public QVkDeviceResource
 {
 public:
-    QVkDeviceMemory(VkDevice device)
+    QVkDeviceMemory(QVkDevice device)
         : QVkDeviceResource(device)
     {
+        DEBUG_ENTRY;
     }
 
     void alloc(VkDeviceSize size, uint32_t typeIndex) {
+    DEBUG_ENTRY;
         m_size = size;
         VkMemoryAllocateInfo allocinfo = {};
         allocinfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -23,6 +24,7 @@ public:
     }
 
     ~QVkDeviceMemory() {
+    DEBUG_ENTRY;
         if(m_size)
             vkFreeMemory(m_device, m_memory, nullptr);
         m_size = 0;
@@ -39,6 +41,7 @@ public:
     }
 
     void unmap() {
+    DEBUG_ENTRY;
         vkUnmapMemory(m_device, m_memory);
     }
 
@@ -50,14 +53,111 @@ protected:
     VkDeviceSize m_size { 0 };
     VkDeviceMemory m_memory { nullptr };
 };
-*/
+
+
+class QVkBuffer
+: public QVkDeviceResource {
+    public:
+    QVkBuffer(QVkDevice device, VkDeviceSize size, VkBufferUsageFlags usage)
+        : QVkDeviceResource(device) {
+    DEBUG_ENTRY;
+
+        VkResult err;
+        VkBufferCreateInfo buf_ci = {};
+        buf_ci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        buf_ci.size = size;
+        buf_ci.usage = usage;
+        // Create a host-visible buffer to copy the vertex data to (staging buffer)
+        err = vkCreateBuffer(device, &buf_ci, nullptr, &m_buffer);
+        Q_ASSERT(!err);
+        vkGetBufferMemoryRequirements(device, m_buffer, &m_memReqs);
+    }
+
+    ~QVkBuffer() {
+    DEBUG_ENTRY;
+        vkDestroyBuffer(device(), m_buffer, nullptr);
+    }
+
+    VkDeviceSize size() {
+        return m_memReqs.size;
+    }
+
+    VkBuffer buffer() {
+        return m_buffer;
+    }
+
+protected:
+    VkBuffer m_buffer;
+    VkMemoryRequirements m_memReqs;
+};
+
+class QVkStagingBuffer: public QVkBuffer {
+public:
+    QVkStagingBuffer(QVkDevice device, size_t size)
+        : QVkBuffer(device,size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT) {
+    DEBUG_ENTRY;
+
+        VkResult err;
+        VkMemoryAllocateInfo memAlloc = {};
+        memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        memAlloc.allocationSize = m_memReqs.size;
+        // Request a host visible memory type that can be used to copy our data do
+        // Also request it to be coherent, so that writes are visible to the GPU right after unmapping the buffer
+//        memAlloc.memoryTypeIndex = getMemoryTypeIndex(m_memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        err = vkAllocateMemory(device, &memAlloc, nullptr, &m_memory);
+        Q_ASSERT(!err);
+        // Map and copy
+        void* data;
+        err = vkMapMemory(device, m_memory, 0, memAlloc.allocationSize, 0, &data);
+        Q_ASSERT(!err);
+//        memcpy(data, vertexBuffer.data(), vertexBufferSize);
+        vkUnmapMemory(device, m_memory);
+        err = vkBindBufferMemory(device, m_buffer, m_memory, 0);
+        Q_ASSERT(!err);
+    }
+    ~QVkStagingBuffer() {
+    DEBUG_ENTRY;
+
+    }
+
+private:
+    VkDeviceMemory m_memory;
+};
+
+class QVkDeviceBuffer
+    : public QVkBuffer {
+public:
+    QVkDeviceBuffer(QVkDevice device, VkDeviceSize size, VkBufferUsageFlags usage)
+        : QVkBuffer(device, size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage) {
+    DEBUG_ENTRY;
+    }
+
+    ~QVkDeviceBuffer() {
+    DEBUG_ENTRY;
+
+    }
+};
+
+template <typename VT> class QVkVertexBuffer
+    : public QVkDeviceBuffer {
+public:
+    QVkVertexBuffer(VkDevice device, uint32_t verts)
+        : QVkDeviceBuffer(device, sizeof(VT) * verts, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT) {
+    DEBUG_ENTRY;
+    }
+
+    ~QVkVertexBuffer() {
+    DEBUG_ENTRY;
+
+    }
+};
+
 
 template <typename UniformStruct>
 class QVkUniformBuffer :public QVkDeviceResource {
 public:
-    QVkUniformBuffer(VkDevice device, VkPhysicalDeviceMemoryProperties* mem_props)
+    QVkUniformBuffer(QVkDevice device)
         : QVkDeviceResource(device)
-        , m_memory_properties(mem_props)
     {
         DEBUG_ENTRY;
         VkResult err;
@@ -77,13 +177,11 @@ public:
         mem_ai.allocationSize = mem_reqs.size;
         mem_ai.memoryTypeIndex = 0;
 
-
-        bool pass = memory_type_from_properties(
+        int index = device.memoryType(
            mem_reqs.memoryTypeBits,
-           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-           &mem_ai.memoryTypeIndex);
-
-        Q_ASSERT(pass);
+           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        Q_ASSERT(index > 0);
+        mem_ai.memoryTypeIndex = index;
 
         err = vkAllocateMemory(m_device, &mem_ai, nullptr, &m_memory);
         m_allocationSize = mem_ai.allocationSize;
@@ -133,25 +231,6 @@ public:
         return &m_hostData;
     }
 
-    bool memory_type_from_properties(uint32_t typeBits,
-                                     VkFlags requirements_mask,
-                                     uint32_t *typeIndex) {
-        // Search memtypes to find first index with those properties
-        for (uint32_t i = 0; i < 32; i++) {
-            if ((typeBits & 1) == 1) {
-                // Type is available, does it match user properties?
-                if ((m_memory_properties->memoryTypes[i].propertyFlags &
-                     requirements_mask) == requirements_mask) {
-                    *typeIndex = i;
-                    return true;
-                }
-            }
-            typeBits >>= 1;
-        }
-        // No memory types matched, return failure
-        return false;
-    }
-
     VkDescriptorBufferInfo* descriptorInfo() {
         DEBUG_ENTRY;
         return &m_descriptorInfo;
@@ -162,7 +241,6 @@ protected:
     VkDeviceMemory m_memory { };
 
     VkDeviceSize m_allocationSize { 0 };
-    VkPhysicalDeviceMemoryProperties* m_memory_properties { nullptr };
 
     UniformStruct m_hostData { };
 

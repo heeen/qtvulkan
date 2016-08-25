@@ -6,15 +6,17 @@
 class QVkImage : public QVkDeviceResource
 {
 public:
-    QVkImage(VkDevice device, VkImage image)
+    QVkImage(QVkDevice device, VkImage image)
         : QVkDeviceResource(device)
         , m_image(image) // FIXME create here
         , m_layout(VK_IMAGE_LAYOUT_UNDEFINED)
     {
+    DEBUG_ENTRY;
 
     }
 
     ~QVkImage() {
+    DEBUG_ENTRY;
 
     }
 

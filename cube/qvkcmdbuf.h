@@ -5,7 +5,7 @@
 #include <vulkan/vulkan.h>
 #include <QColor>
 #include "qvkimage.h"
-
+#include "qvulkanbuffer.h"
 
 class QVkCommandBufferRecorder {
 public:
@@ -209,6 +209,15 @@ public:
         return *this;
     }
 
+    QVkCommandBufferRecorder& copyBuffer(QVkStagingBuffer& src, QVkDeviceBuffer& dst) {
+    DEBUG_ENTRY;
+        VkBufferCopy copyRegion = {};
+        Q_ASSERT(src.size() == dst.size());
+        copyRegion.size = src.size();
+        vkCmdCopyBuffer(m_cb, src.buffer(), dst.buffer(), 1, &copyRegion);
+        return *this;
+    }
+
 private:
     VkCommandBuffer& m_cb;
 };
@@ -216,7 +225,7 @@ private:
 
 class QVkCommandBuffer: public QVkDeviceResource {
 public:
-    QVkCommandBuffer(VkDevice dev, VkCommandPool pool)
+    QVkCommandBuffer(QVkDevice dev, VkCommandPool pool)
         : QVkDeviceResource(dev)
         , m_pool(pool)
         , m_cmdbuf {}
@@ -239,6 +248,7 @@ public:
     operator VkCommandBuffer& () { return m_cmdbuf; }
 
     QVkCommandBufferRecorder record(VkCommandBufferUsageFlags flags = 0) {
+    DEBUG_ENTRY;
         return QVkCommandBufferRecorder(m_cmdbuf, flags);
     }
 
@@ -247,18 +257,15 @@ private:
     VkCommandBuffer m_cmdbuf;
 };
 
-
-
-
-
 class QVkQueue : public QVkDeviceResource {
 public:
-    QVkQueue(): QVkDeviceResource(nullptr) {
+/*    QVkQueue(): QVkDeviceResource(nullptr) {
         //FIXME get rid of this default constructor
-    }
-    QVkQueue(VkDevice device, uint32_t familyIndex, uint32_t queueIndex = 0)
+    }*/
+    QVkQueue(QVkDevice device, uint32_t familyIndex, uint32_t queueIndex = 0)
         : QVkDeviceResource(device) {
         vkGetDeviceQueue(m_device, familyIndex, queueIndex, &m_queue);
+    DEBUG_ENTRY;
     }
     ~QVkQueue() {
     }
@@ -271,7 +278,6 @@ public:
     void submit(VkCommandBuffer cmdbuf) {
         DEBUG_ENTRY;
         DBG("submitting buffer: %p\n", (void*)cmdbuf);
-        VkFence nullFence = nullptr;
         VkSubmitInfo submit_info = {};
         submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submit_info.pNext = nullptr;
@@ -282,7 +288,7 @@ public:
         submit_info.pCommandBuffers = &cmdbuf;
         submit_info.signalSemaphoreCount = 0;
         submit_info.pSignalSemaphores = nullptr;
-        VkResult err = vkQueueSubmit(m_queue, 1, &submit_info, nullFence);
+        VkResult err = vkQueueSubmit(m_queue, 1, &submit_info, nullptr);
         Q_ASSERT(!err);
     }
 

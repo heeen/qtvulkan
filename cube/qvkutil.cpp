@@ -30,7 +30,7 @@ VkFormat QtFormat2vkFormat(QImage::Format f) {
     }
 }
 
-QStringList layerNames(QVector<VkLayerProperties> layers) {
+QStringList getLayerNames(QVector<VkLayerProperties> layers) {
     QStringList names;
     for(const auto& l: layers) names << l.layerName;
     return names;

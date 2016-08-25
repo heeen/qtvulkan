@@ -4,6 +4,10 @@
 #include <QRectF>
 #include <vulkan/vulkan.h>
 #include <QImage>
+#include "qvkdevice.h"
+
+#define ERR_EXIT(err_msg, err_class) qFatal(err_msg)
+typedef QVector<const char*> QVulkanNames;
 
 struct QVkRect : public VkRect2D{
     QVkRect() {}
@@ -30,6 +34,9 @@ struct QVkRect : public VkRect2D{
     }
 };
 
+
+
+
 struct QVkViewport: public VkViewport {
     QVkViewport() { width = 300.0f; height = 300.0f; }
     QVkViewport(float aWidth, float aHeight)
@@ -47,18 +54,18 @@ struct QVkViewport: public VkViewport {
 
 class QVkDeviceResource {
 public:
-    QVkDeviceResource(VkDevice dev)
+    QVkDeviceResource(QVkDevice dev)
         : m_device(dev)
     { }
     VkDevice device() { return m_device; }
 protected:
-    VkDevice m_device;
+    QVkDevice m_device;
 //    QVkDeviceResource& operator=(const QVkDeviceResource&) = delete;
     QVkDeviceResource(const QVkDeviceResource&) = delete;
 };
 
 VkFormat QtFormat2vkFormat(QImage::Format f);
-QStringList layerNames(QVector<VkLayerProperties> layers);
+QStringList getLayerNames(QVector<VkLayerProperties> layers);
 
 template<typename VKTYPE, typename VKFUNC>
 QVector<VKTYPE> getVk(VKFUNC getter) {

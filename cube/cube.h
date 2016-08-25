@@ -38,6 +38,14 @@ private:
     QMatrix4x4 m_projection_matrix  {};
     QMatrix4x4 m_view_matrix        {};
     QMatrix4x4 m_model_matrix       {};
+
+
+    struct CubeVertexType {
+        QVector4D position;
+        QVector4D attr;
+    };
+//    QVkVertexBuffer<CubeVertexType> m_vertexBuffer;
+
 };
 
 
