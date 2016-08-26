@@ -153,29 +153,9 @@ protected:
     int32_t m_curFrame  {0};
     int32_t m_frameCount  {INT32_MAX};
     bool m_use_break { false };
-    PFN_vkCreateDebugReportCallbackEXT CreateDebugReportCallback  {nullptr};
-    PFN_vkDestroyDebugReportCallbackEXT DestroyDebugReportCallback  {nullptr};
-    VkDebugReportCallbackEXT msg_callback           {nullptr};
-    PFN_vkDebugReportMessageEXT DebugReportMessage  {nullptr};
-
-
 
     bool m_validationError { false };
-    static VKAPI_ATTR VkBool32 VKAPI_CALL
-    dbgFunc(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
-            uint64_t srcObject, size_t location, int32_t msgCode,
-            const char *pLayerPrefix, const char *pMsg, void *pUserData);
 };
-
-#define GET_INSTANCE_PROC_ADDR(inst, entrypoint)                               \
-    {                                                                          \
-        fp##entrypoint =                                                 \
-            (PFN_vk##entrypoint)vkGetInstanceProcAddr(inst, "vk" #entrypoint); \
-        if (fp##entrypoint == NULL) {                                    \
-            ERR_EXIT("vkGetInstanceProcAddr failed to find vk" #entrypoint,    \
-                     "vkGetInstanceProcAddr Failure");                         \
-        }                                                                      \
-    }
 
 
 

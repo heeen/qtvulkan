@@ -123,10 +123,6 @@ QVulkanView::~QVulkanView()
 
     vkDestroyCommandPool(m_device, m_cmd_pool, nullptr);
 
-    vkDestroyDevice(m_device, nullptr);
-    if (/*m_validate*/ true) {
-        DestroyDebugReportCallback(m_inst, msg_callback, nullptr);
-    }
     vkDestroySurfaceKHR(m_inst, m_surface, nullptr);
 }
 
@@ -1303,41 +1299,4 @@ void QVulkanView::init_vk_swapchain() {
     m_color_space = surfFormats[0].colorSpace;
 
     m_curFrame = 0;
-}
-
-VKAPI_ATTR VkBool32 VKAPI_CALL
-QVulkanView::dbgFunc(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
-        uint64_t srcObject, size_t location, int32_t msgCode,
-        const char *pLayerPrefix, const char *pMsg, void *pUserData) {
-
-    Q_UNUSED(objType)
-    Q_UNUSED(srcObject)
-    Q_UNUSED(location)
-
-    QVulkanView* view = (QVulkanView*) pUserData;
-    view->m_validationError = true;
-
-    {
-        QDebug q(qDebug());
-
-    if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
-        q<<"ERROR";
-    } else if (msgFlags & VK_DEBUG_REPORT_WARNING_BIT_EXT) {
-        q<<"WARNING";
-    } else {
-        q<<"INFO: ["<<pLayerPrefix<<"] Code"<<msgCode<<pMsg;
-        return false;
-    }
-
-    q<<": ["<<pLayerPrefix<<"] Code"<<msgCode<<pMsg;
-    }
-    /*
-     * false indicates that layer should not bail-out of an
-     * API call that had validation failures. This may mean that the
-     * app dies inside the driver due to invalid parameter(s).
-     * That's what would happen without validation layers, so we'll
-     * keep that behavior here.
-     */
-    abort();
-    return false;
 }

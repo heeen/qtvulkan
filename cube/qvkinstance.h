@@ -1,5 +1,5 @@
-#ifndef QVKINSTACE_H
-#define QVKINSTACE_H
+#ifndef QVKINSTANCE_H
+#define QVKINSTANCE_H
 #define VK_USE_PLATFORM_XCB_KHR 1
 #include "qvkutil.h"
 #include <vulkan/vulkan.h>
@@ -54,6 +54,11 @@ private:
     s_dbgFunc(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
             uint64_t srcObject, size_t location, int32_t msgCode,
             const char *pLayerPrefix, const char *pMsg, void *pUserData);
+
+    PFN_vkCreateDebugReportCallbackEXT CreateDebugReportCallback  {nullptr};
+    PFN_vkDestroyDebugReportCallbackEXT DestroyDebugReportCallback  {nullptr};
+    VkDebugReportCallbackEXT msg_callback           {nullptr};
+    PFN_vkDebugReportMessageEXT DebugReportMessage  {nullptr};
 };
 
 #endif // QVKINSTACE_H

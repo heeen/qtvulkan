@@ -47,7 +47,7 @@ QVkDevice::QVkDevice(QVkPhysicalDevice physicalDevice, uint32_t graphicsQueueInd
 }
 
 QVkDevice::~QVkDevice() {
-
+    vkDestroyDevice(m_device, nullptr);
 }
 
 int32_t QVkDevice::memoryType(uint32_t typeBits, VkFlags requirements) {

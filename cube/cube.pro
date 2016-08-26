@@ -48,6 +48,6 @@ HEADERS += \
     qvulkanview.h \
     qvulkanbuffer.h \
     qvkimage.h \
-    qvkinstace.h \
+    qvkinstance.h \
     qvkdevice.h
 

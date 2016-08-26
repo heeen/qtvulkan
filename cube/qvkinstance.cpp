@@ -212,11 +212,9 @@ QVkInstance::QVkInstance(QVulkanNames layerNames, QVulkanNames extensionNames) {
         }
 
         dbgCreateInfo = {};
-        PFN_vkDebugReportCallbackEXT callback;
-        callback = m_use_break ? BreakCallback : dbgFunc;
         dbgCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
         dbgCreateInfo.pNext = nullptr;
-        dbgCreateInfo.pfnCallback = callback;
+        dbgCreateInfo.pfnCallback = s_dbgFunc;
         dbgCreateInfo.pUserData = this;
         dbgCreateInfo.flags =
                 VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
@@ -259,6 +257,9 @@ QVkInstance::QVkInstance(QVulkanNames layerNames, QVulkanNames extensionNames) {
 
 
 QVkInstance::~QVkInstance() {
+    if (/*m_validate*/ true) {
+        DestroyDebugReportCallback(m_instance, msg_callback, nullptr);
+    }
     vkDestroyInstance(m_instance, nullptr);
 }
 
@@ -282,11 +283,9 @@ bool QVkInstance::containsAllLayers(const QVector<VkLayerProperties> haystack, c
 
 VkBool32 QVkInstance::debugMessage(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType, uint64_t srcObject, size_t location, int32_t msgCode, const char *pLayerPrefix, const char *pMsg)
 {
-
     Q_UNUSED(objType)
     Q_UNUSED(srcObject)
     Q_UNUSED(location)
-
     {
         QDebug q(qDebug());
 
@@ -312,15 +311,24 @@ VkBool32 QVkInstance::debugMessage(VkFlags msgFlags, VkDebugReportObjectTypeEXT 
     return false;
 }
 
+#define GET_INSTANCE_PROC_ADDR(inst, entrypoint)                               \
+    {                                                                          \
+        fp##entrypoint =                                                 \
+            (PFN_vk##entrypoint)vkGetInstanceProcAddr(inst, "vk" #entrypoint); \
+        if (fp##entrypoint == NULL) {                                    \
+            ERR_EXIT("vkGetInstanceProcAddr failed to find vk" #entrypoint,    \
+                     "vkGetInstanceProcAddr Failure");                         \
+        }                                                                      \
+    }
+
+
 void QVkInstance::initFunctions()
 {
-
     GET_INSTANCE_PROC_ADDR(m_instance, GetPhysicalDeviceSurfaceSupportKHR);
     GET_INSTANCE_PROC_ADDR(m_instance, GetPhysicalDeviceSurfaceCapabilitiesKHR);
     GET_INSTANCE_PROC_ADDR(m_instance, GetPhysicalDeviceSurfaceFormatsKHR);
     GET_INSTANCE_PROC_ADDR(m_instance, GetPhysicalDeviceSurfacePresentModesKHR);
-    GET_INSTANCE_PROC_ADDR(m_instance, GetSwapchainImagesKHR);
-
+// GET_INSTANCE_PROC_ADDR(m_instance, GetSwapchainImagesKHR);
 }
 
 QVkPhysicalDevice QVkInstance::device(uint32_t index) {
@@ -335,14 +343,14 @@ QVkPhysicalDevice QVkInstance::device(uint32_t index) {
                  "vkEnumeratePhysicalDevices Failure");
     }
 
-    return physicalDevices[0];
+    return physicalDevices[index];
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL
-QVulkanView::dbgFunc(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
+QVkInstance::s_dbgFunc(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
         uint64_t srcObject, size_t location, int32_t msgCode,
         const char *pLayerPrefix, const char *pMsg, void *pUserData) {
 
-    QVulkanInstance* inst = (QVulkanInstance*) pUserData;
-    return instance->debugFunction(msgFlags, objType, srcObject, location, msgCode, pLayerPrefix, pMsg);
+    QVkInstance* inst = (QVkInstance*) pUserData;
+    return inst->debugMessage(msgFlags, objType, srcObject, location, msgCode, pLayerPrefix, pMsg);
 }

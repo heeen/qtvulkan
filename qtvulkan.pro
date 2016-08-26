@@ -1,2 +1,2 @@
 TEMPLATE= subdirs
-SUBDIRS = lib cube
+SUBDIRS = cube
