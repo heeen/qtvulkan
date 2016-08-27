@@ -1,8 +1,7 @@
-#include "qvkinstace.h"
 #include <QDebug>
+#include "qvkinstance.h"
 
-
-QVkInstance::QVkInstance(QVulkanNames layerNames, QVulkanNames extensionNames) {
+QVkInstance::QVkInstance() {
 
     DEBUG_ENTRY;
     QVulkanNames validationLayers;
@@ -139,53 +138,6 @@ QVkInstance::QVkInstance(QVulkanNames layerNames, QVulkanNames extensionNames) {
                  "vkCreateInstance Failure");
     }
 
-
-    // Look for validation layers
-    if(m_validate) {
-        auto getDevLayers = [this](uint32_t* c, VkLayerProperties* d) { return vkEnumerateDeviceLayerProperties(m_gpu, c, d); };
-        auto deviceLayers= getVk<VkLayerProperties>(getDevLayers);
-
-        qDebug()<<"found device Layers:"<<layerNames(deviceLayers);
-
-        if(deviceLayers.isEmpty()) {
-            qFatal("validation requested, but no device validation layers found!");
-        }
-        if(!containsAllLayers(deviceLayers, m_deviceValidationLayers)) {
-            qFatal("validation requested, but not all device validation layers found!");
-        }
-    }
-
-    /* Look for device extensions */
-    VkBool32 swapchainExtFound = 0;
-    m_extensionNames.clear();
-
-    auto getDevExt = [this](uint32_t* c, VkExtensionProperties* d) {
-        return vkEnumerateDeviceExtensionProperties(m_gpu, nullptr/*layerName?*/, c, d);
-    };
-    auto deviceExtensions = getVk<VkExtensionProperties>(getDevExt);
-
-    if(deviceExtensions.isEmpty()) {
-        qFatal("no device extensions found!");
-    }
-
-    for (const auto& ext: deviceExtensions) {
-        qDebug()<<"device extension"<<ext.extensionName;
-        if (!strcmp(ext.extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME)) {
-            swapchainExtFound = 1;
-            m_extensionNames << VK_KHR_SWAPCHAIN_EXTENSION_NAME;
-        }
-    }
-
-    if (!swapchainExtFound) {
-        ERR_EXIT("vkEnumerateDeviceExtensionProperties failed to find "
-                 "the " VK_KHR_SWAPCHAIN_EXTENSION_NAME
-                 " extension.\n\nDo you have a compatible "
-                 "Vulkan installable client driver (ICD) installed?\nPlease "
-                 "look at the Getting Started guide for additional "
-                 "information.\n",
-                 "vkCreateInstance Failure");
-    }
-
     if (m_validate) {
         CreateDebugReportCallback =
                 (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(
@@ -233,26 +185,6 @@ QVkInstance::QVkInstance(QVulkanNames layerNames, QVulkanNames extensionNames) {
             break;
         }
     }
-    vkGetPhysicalDeviceProperties(m_gpu, &m_gpu_props);
-
-    auto getPhysDevQueFamProp = [this](uint32_t* c, VkQueueFamilyProperties* d) {
-        vkGetPhysicalDeviceQueueFamilyProperties(m_gpu, c, d); return VK_SUCCESS;
-    };
-    m_queueProps = getVk<VkQueueFamilyProperties>(getPhysDevQueFamProp);
-
-    // Find a queue that supports gfx
-    int gfx_queue_idx = 0;
-    for (gfx_queue_idx = 0; gfx_queue_idx < m_queueProps.count();
-         gfx_queue_idx++) {
-        if (m_queueProps[gfx_queue_idx].queueFlags & VK_QUEUE_GRAPHICS_BIT)
-            break;
-    }
-    // Query fine-grained feature support for this device.
-    //  If app has specific feature requirements it should check supported
-    //  features based on this query
-    VkPhysicalDeviceFeatures physDevFeatures;
-    vkGetPhysicalDeviceFeatures(m_gpu, &physDevFeatures);
-
 }
 
 
@@ -263,23 +195,6 @@ QVkInstance::~QVkInstance() {
     vkDestroyInstance(m_instance, nullptr);
 }
 
-bool QVkInstance::containsAllLayers(const QVector<VkLayerProperties> haystack, const QVulkanNames needles) {
-    DEBUG_ENTRY;
-    bool found = false;
-    for (auto needle: needles) {
-        for (auto candidate: haystack) {
-            if(strcmp(candidate.layerName , needle) == 0) {
-                found = true;
-                break;
-            }
-        }
-        if(!found) {
-            qDebug()<<"Could not find layer"<<needle;
-            return false;
-        }
-    }
-    return true;
-}
 
 VkBool32 QVkInstance::debugMessage(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType, uint64_t srcObject, size_t location, int32_t msgCode, const char *pLayerPrefix, const char *pMsg)
 {
@@ -343,7 +258,7 @@ QVkPhysicalDevice QVkInstance::device(uint32_t index) {
                  "vkEnumeratePhysicalDevices Failure");
     }
 
-    return physicalDevices[index];
+    return QVkPhysicalDevice(physicalDevices[index]);
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL

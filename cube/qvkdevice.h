@@ -1,30 +1,18 @@
 #ifndef QVKDEVICE_H
 #define QVKDEVICE_H
 #include <vulkan/vulkan.h>
-
-
-class QVkPhysicalDevice {
-public:
-    ~QVkPhysicalDevice() {
-
-    }
-    operator VkPhysicalDevice*() {
-        return &m_device;
-    }
-    operator VkPhysicalDevice() {
-        return m_device;
-    }
-private:
-    QVkPhysicalDevice() {
-
-    }
-    VkPhysicalDevice m_device;
-};
-
+#include "qvkutil.h"
+#include "qvkinstance.h"
+#include "qvkphysicaldevice.h"
 
 class QVkDevice {
 public:
-    QVkDevice(QVkPhysicalDevice physicalDevice, uint32_t graphicsQueueIndex, QVector<const char*> layers, QVector<const char*> extensions);
+    QVkDevice(QVkInstance instance,
+              QVkPhysicalDevice physicalDevice,
+              uint32_t graphicsQueueIndex,
+              QVulkanNames layers,
+              QVulkanNames extensions);
+
     ~QVkDevice();
 
     int32_t memoryType(uint32_t typeBits, VkFlags requirements);
@@ -60,9 +48,24 @@ public:
     PFN_vkQueuePresentKHR fpQueuePresentKHR             {nullptr};
 
 private:
-    void initFunctions();
+    void initFunctions(QVkInstance instance);
     VkDevice m_device       {nullptr};
+    QVkPhysicalDevice m_gpu;
     VkPhysicalDeviceMemoryProperties m_memory_properties    {};
+    QVulkanNames m_layerNames;
+    QVulkanNames m_extensionNames;
+};
+
+class QVkDeviceResource {
+public:
+    QVkDeviceResource(QVkDevice dev)
+        : m_device(dev)
+    { }
+    VkDevice device() { return m_device; }
+protected:
+    QVkDevice m_device;
+//    QVkDeviceResource& operator=(const QVkDeviceResource&) = delete;
+    QVkDeviceResource(const QVkDeviceResource&) = delete;
 };
 
 #endif // QVKDEVICE_H

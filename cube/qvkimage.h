@@ -1,6 +1,6 @@
 #ifndef QVKIMAGE_H
 #define QVKIMAGE_H
-#include "qvkutil.h"
+#include "qvkdevice.h"
 #include "vulkan/vulkan.h"
 
 class QVkImage : public QVkDeviceResource

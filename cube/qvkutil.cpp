@@ -35,3 +35,20 @@ QStringList getLayerNames(QVector<VkLayerProperties> layers) {
     for(const auto& l: layers) names << l.layerName;
     return names;
 }
+
+bool containsAllLayers(const QVector<VkLayerProperties> haystack, const QVulkanNames needles) {
+    bool found = false;
+    for (auto needle: needles) {
+        for (auto candidate: haystack) {
+            if(strcmp(candidate.layerName , needle) == 0) {
+                found = true;
+                break;
+            }
+        }
+        if(!found) {
+            qDebug()<<"Could not find layer"<<needle;
+            return false;
+        }
+    }
+    return true;
+}

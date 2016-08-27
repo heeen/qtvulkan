@@ -2,12 +2,16 @@
 #define QVKUTIL_H
 
 #include <QRectF>
-#include <vulkan/vulkan.h>
 #include <QImage>
-#include "qvkdevice.h"
+#include <QDebug>
+#include <vulkan/vulkan.h>
 
 #define ERR_EXIT(err_msg, err_class) qFatal(err_msg)
 typedef QVector<const char*> QVulkanNames;
+
+VkFormat QtFormat2vkFormat(QImage::Format f);
+QStringList getLayerNames(QVector<VkLayerProperties> layers);
+bool containsAllLayers(const QVector<VkLayerProperties> haystack, const QVulkanNames needles);
 
 struct QVkRect : public VkRect2D{
     QVkRect() {}
@@ -34,9 +38,6 @@ struct QVkRect : public VkRect2D{
     }
 };
 
-
-
-
 struct QVkViewport: public VkViewport {
     QVkViewport() { width = 300.0f; height = 300.0f; }
     QVkViewport(float aWidth, float aHeight)
@@ -51,21 +52,6 @@ struct QVkViewport: public VkViewport {
         maxDepth = aMaxDepth;
     }
 };
-
-class QVkDeviceResource {
-public:
-    QVkDeviceResource(QVkDevice dev)
-        : m_device(dev)
-    { }
-    VkDevice device() { return m_device; }
-protected:
-    QVkDevice m_device;
-//    QVkDeviceResource& operator=(const QVkDeviceResource&) = delete;
-    QVkDeviceResource(const QVkDeviceResource&) = delete;
-};
-
-VkFormat QtFormat2vkFormat(QImage::Format f);
-QStringList getLayerNames(QVector<VkLayerProperties> layers);
 
 template<typename VKTYPE, typename VKFUNC>
 QVector<VKTYPE> getVk(VKFUNC getter) {
@@ -107,7 +93,6 @@ public:
     ScopeDebug operator=(const ScopeDebug&) = delete;
 
 };
-
 
 #if 1
 #define DEBUG_ENTRY ScopeDebug DBG(__PRETTY_FUNCTION__);

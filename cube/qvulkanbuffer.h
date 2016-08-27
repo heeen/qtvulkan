@@ -1,7 +1,7 @@
 #ifndef QVULKANBUFFER_H
 #define QVULKANBUFFER_H
 #include <vulkan/vulkan.h>
-#include <qvkutil.h>
+#include <qvkdevice.h>
 class QVkDeviceMemory: public QVkDeviceResource
 {
 public:

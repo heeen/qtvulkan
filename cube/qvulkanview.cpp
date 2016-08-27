@@ -70,16 +70,15 @@ BreakCallback(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
 
 
 QVulkanView::QVulkanView() :
-    m_inst(QVulkanNames({}), QVulkanNames({})),
+    m_inst(),
     m_gpu(m_inst.device(0))
     , m_graphics_queue_node_index(0)
-    , m_device(m_gpu, m_graphics_queue_node_index, m_deviceValidationLayers, m_extensionNames)
+    , m_device(m_inst, m_gpu, m_graphics_queue_node_index, m_deviceValidationLayers, m_extensionNames)
     , m_queue(m_device, m_graphics_queue_node_index)
 {
     DEBUG_ENTRY;
 
     QVkQueue::fpQueuePresentKHR = m_device.fpQueuePresentKHR; // ugh!
-    init_vk();
     init_vk_swapchain();
     prepare();
 
@@ -1148,29 +1147,6 @@ void QVulkanView::resize_vk() {
     }
 }
 
-/*
- * Return 1 (true) if all layer names specified in check_names
- * can be found in given layer properties.
- */
-/*
-bool QVulkanView::containsAllLayers(const QVector<VkLayerProperties> haystack, const QVulkanNames needles) {
-    DEBUG_ENTRY;
-    bool found = false;
-    for (auto needle: needles) {
-        for (auto candidate: haystack) {
-            if(strcmp(candidate.layerName , needle) == 0) {
-                found = true;
-                break;
-            }
-        }
-        if(!found) {
-            qDebug()<<"Could not find layer"<<needle;
-            return false;
-        }
-    }
-    return true;
-}
-*/
 void QVulkanView::resizeEvent(QResizeEvent *e)
 {
     DEBUG_ENTRY;
@@ -1223,9 +1199,10 @@ void QVulkanView::init_vk_swapchain() {
 #endif // _WIN32
     Q_ASSERT(!err);
 
+    auto queueProperties = m_gpu.queueProperties();
     // Iterate over each queue to learn whether it supports presenting:
     QVector<VkBool32> supportsPresent;
-    supportsPresent.resize(m_queueProps.count());
+    supportsPresent.resize(queueProperties.count());
     for (int i = 0; i < supportsPresent.count(); i++) {
         m_inst.getPhysicalDeviceSurfaceSupport(m_gpu, i, m_surface, &supportsPresent[i]);
     }
@@ -1234,8 +1211,8 @@ void QVulkanView::init_vk_swapchain() {
     // families, try to find one that supports both
     uint32_t graphicsQueueNodeIndex = UINT32_MAX;
     uint32_t presentQueueNodeIndex = UINT32_MAX;
-    for (int i = 0; i < m_queueProps.count(); i++) {
-        if ((m_queueProps[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0) {
+    for (int i = 0; i < queueProperties.count(); i++) {
+        if ((queueProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0) {
             if (graphicsQueueNodeIndex == UINT32_MAX) {
                 graphicsQueueNodeIndex = i;
             }
@@ -1250,7 +1227,7 @@ void QVulkanView::init_vk_swapchain() {
     if (presentQueueNodeIndex == UINT32_MAX) {
         // If didn't find a queue that supports both graphics and present, then
         // find a separate present queue.
-        for (int i = 0; i < m_queueProps.count(); ++i) {
+        for (int i = 0; i < queueProperties.count(); ++i) {
             if (supportsPresent[i] == VK_TRUE) {
                 presentQueueNodeIndex = i;
                 break;

@@ -2,17 +2,16 @@
 #define QVKINSTANCE_H
 #define VK_USE_PLATFORM_XCB_KHR 1
 #include "qvkutil.h"
+#include "qvkphysicaldevice.h"
 #include <vulkan/vulkan.h>
 
 class QVkInstance {
 public:
-    QVkInstance(QVulkanNames layers, QVulkanNames extensions);
+    QVkInstance();
 
     ~QVkInstance();
 
     QVkPhysicalDevice device(uint32_t index);
-
-    bool containsAllLayers(const QVector<VkLayerProperties> haystack, const QVulkanNames needles);
 
     inline VkResult getPhysicalDeviceSurfaceSupport(VkPhysicalDevice physicalDevice, uint32_t queueFamilyIndex, VkSurfaceKHR surface, VkBool32* pSupported) {
         return fpGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, queueFamilyIndex, surface, pSupported);

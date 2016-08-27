@@ -11,7 +11,7 @@
 
 #include <vulkan/vulkan.h>
 #include "qvkcmdbuf.h"
-#include "qvkinstace.h"
+#include "qvkinstance.h"
 
 #define DEMO_TEXTURE_COUNT 1
 
@@ -53,7 +53,6 @@ class QVulkanView : public QWindow {
 public:
     QVulkanView();
     ~QVulkanView();
-    void init_vk();
     void init_vk_swapchain();
 
     void resizeEvent(QResizeEvent *) override; // QWindow::resizeEvent
@@ -103,8 +102,6 @@ protected:
 
     QVector<const char*> m_extensionNames           {};
     QVector<const char*> m_deviceValidationLayers   {};
-    VkPhysicalDeviceProperties m_gpu_props                  {};
-    QVector<VkQueueFamilyProperties> m_queueProps           {};
 
     VkSurfaceKHR m_surface      { nullptr };
     bool m_prepared             { false };
