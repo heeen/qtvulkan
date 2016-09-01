@@ -16,40 +16,17 @@ static PFN_vkGetDeviceProcAddr g_gdpa = nullptr;
         }                                                                      \
     }
 
-QVkDevice::QVkDevice(QVkInstance instance,
+QVkDevice::QVkDevice(QVkInstance &instance,
                      QVkPhysicalDevice physicalDevice,
                      uint32_t graphicsQueueIndex,
                      QVulkanNames requestedLayers,
                      QVulkanNames requestedExtensions)
     :m_gpu(physicalDevice) {
-
+    DEBUG_ENTRY;
     VkResult err;
-    Q_ASSERT((VkPhysicalDevice) physicalDevice) ;
-    float queue_priorities[1] = {0.0};
-    VkDeviceQueueCreateInfo queue = {};
-    queue.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queue.pNext = nullptr;
-    queue.queueFamilyIndex = graphicsQueueIndex;
-    queue.queueCount = 1;
-    queue.pQueuePriorities = queue_priorities;
-
-    VkDeviceCreateInfo device_ci = {};
-    device_ci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    device_ci.pNext = nullptr;
-    device_ci.queueCreateInfoCount = 1;
-    device_ci.pQueueCreateInfos = &queue;
-    device_ci.enabledLayerCount = requestedLayers.count();
-    device_ci.ppEnabledLayerNames =  requestedLayers.data();
-    device_ci.enabledExtensionCount = requestedExtensions.count();
-    device_ci.ppEnabledExtensionNames = requestedExtensions.data();
-    device_ci.pEnabledFeatures = nullptr; // If specific features are required, pass them in here
-
-    err = vkCreateDevice(physicalDevice, &device_ci, nullptr, &m_device);
-    Q_ASSERT(!err);
-    initFunctions(instance);
-
+    Q_ASSERT((VkPhysicalDevice) m_gpu) ;
     // Get Memory information and properties
-    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &m_memory_properties);
+    vkGetPhysicalDeviceMemoryProperties(m_gpu, &m_memory_properties);
 
     // Look for validation layers
     if(/*m_validate*/ true) {
@@ -83,7 +60,7 @@ QVkDevice::QVkDevice(QVkInstance instance,
         qDebug()<<"device extension"<<ext.extensionName;
         if (!strcmp(ext.extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME)) {
             swapchainExtFound = 1;
-            m_extensionNames << VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+            requestedExtensions << VK_KHR_SWAPCHAIN_EXTENSION_NAME;
         }
     }
 
@@ -96,9 +73,33 @@ QVkDevice::QVkDevice(QVkInstance instance,
                  "information.\n",
                  "vkCreateInstance Failure");
     }
+
+    float queue_priorities[1] = {0.0};
+    VkDeviceQueueCreateInfo queue = {};
+    queue.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queue.pNext = nullptr;
+    queue.queueFamilyIndex = graphicsQueueIndex;
+    queue.queueCount = 1;
+    queue.pQueuePriorities = queue_priorities;
+
+    VkDeviceCreateInfo device_ci = {};
+    device_ci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    device_ci.pNext = nullptr;
+    device_ci.queueCreateInfoCount = 1;
+    device_ci.pQueueCreateInfos = &queue;
+    device_ci.enabledLayerCount = requestedLayers.count();
+    device_ci.ppEnabledLayerNames =  requestedLayers.data();
+    device_ci.enabledExtensionCount = requestedExtensions.count();
+    device_ci.ppEnabledExtensionNames = requestedExtensions.data();
+    device_ci.pEnabledFeatures = nullptr; // If specific features are required, pass them in here
+
+    err = vkCreateDevice(physicalDevice, &device_ci, nullptr, &m_device);
+    Q_ASSERT(!err);
+    initFunctions(instance);
 }
 
 QVkDevice::~QVkDevice() {
+    DEBUG_ENTRY;
     vkDestroyDevice(m_device, nullptr);
 }
 
@@ -119,7 +120,7 @@ int32_t QVkDevice::memoryType(uint32_t typeBits, VkFlags requirements) {
     return -1;
 }
 
-void QVkDevice::initFunctions(QVkInstance instance) {
+void QVkDevice::initFunctions(QVkInstance& instance) {
     GET_DEVICE_PROC_ADDR(instance, m_device, CreateSwapchainKHR);
     GET_DEVICE_PROC_ADDR(instance, m_device, DestroySwapchainKHR);
     GET_DEVICE_PROC_ADDR(instance, m_device, GetSwapchainImagesKHR);

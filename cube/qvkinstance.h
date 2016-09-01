@@ -4,12 +4,14 @@
 #include "qvkutil.h"
 #include "qvkphysicaldevice.h"
 #include <vulkan/vulkan.h>
+#include <QSharedPointer>
 
 class QVkInstance {
 public:
     QVkInstance();
-
     ~QVkInstance();
+
+    Q_DISABLE_COPY(QVkInstance)
 
     QVkPhysicalDevice device(uint32_t index);
 
@@ -45,6 +47,7 @@ public:
 private:
     void initFunctions();
     VkInstance m_instance { nullptr };
+
     bool m_validate { true };
     QVulkanNames m_layerNames;
     QVulkanNames m_extensionNames;

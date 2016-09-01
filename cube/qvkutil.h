@@ -57,7 +57,7 @@ template<typename VKTYPE, typename VKFUNC>
 QVector<VKTYPE> getVk(VKFUNC getter) {
     VkResult err;
     QVector<VKTYPE> ret;
-    uint32_t count;
+    uint32_t count = 0;
     err = getter(&count, nullptr);
     Q_ASSERT(!err);
     if (count > 0) {

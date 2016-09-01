@@ -72,7 +72,7 @@ void CubeDemo::prepareDescriptorSet()
     alloc_info.pSetLayouts = &m_desc_layout;
 
     VkResult U_ASSERT_ONLY err;
-    err = vkAllocateDescriptorSets(m_device, &alloc_info, &m_desc_set);
+    err = vkAllocateDescriptorSets(*device(), &alloc_info, &m_desc_set);
     Q_ASSERT(!err);
 
     VkDescriptorImageInfo tex_descs[DEMO_TEXTURE_COUNT] = {};
@@ -96,7 +96,7 @@ void CubeDemo::prepareDescriptorSet()
     writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     writes[1].pImageInfo = tex_descs;
 
-    vkUpdateDescriptorSets(m_device, 2, writes, 0, nullptr);
+    vkUpdateDescriptorSets(*device(), 2, writes, 0, nullptr);
 }
 
 void CubeDemo::buildDrawCommand(VkCommandBuffer cmd_buf)
@@ -147,7 +147,7 @@ void CubeDemo::redraw() {
     }
 
     // Wait for work to finish before updating MVP.
-    vkDeviceWaitIdle(device());
+    vkDeviceWaitIdle(*device());
     updateUniforms();
     draw();
 }

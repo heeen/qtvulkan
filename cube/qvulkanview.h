@@ -75,7 +75,7 @@ public:
     VkShaderModule createShaderModule(QString filename);
 
     bool validationError() { return m_validationError; }
-    inline QVkDevice& device() { return m_device; }
+    inline QSharedPointer<QVkDevice> device() { return m_device; }
 public slots:
     void redraw();
 
@@ -89,11 +89,6 @@ protected:
         Q_UNUSED(result);
         return true;
     }*/
-
-
-    // we don't support copying
-    QVulkanView(const QVulkanView&) = delete;
-    QVulkanView& operator=(const QVulkanView&) = delete;
 
     virtual void prepareDescriptorSet() {}
     virtual void buildDrawCommand(VkCommandBuffer cmd_buf) {
@@ -110,7 +105,7 @@ protected:
     QVkInstance m_inst;
     QVkPhysicalDevice m_gpu;
     uint32_t m_graphics_queue_node_index                    {0};
-    QVkDevice m_device;
+    QSharedPointer<QVkDevice> m_device;
 
     QVkQueue m_queue;
 

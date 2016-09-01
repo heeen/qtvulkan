@@ -73,12 +73,12 @@ QVulkanView::QVulkanView() :
     m_inst(),
     m_gpu(m_inst.device(0))
     , m_graphics_queue_node_index(0)
-    , m_device(m_inst, m_gpu, m_graphics_queue_node_index, m_deviceValidationLayers, m_extensionNames)
+    , m_device( new QVkDevice(m_inst, m_gpu, m_graphics_queue_node_index, m_deviceValidationLayers, m_extensionNames))
     , m_queue(m_device, m_graphics_queue_node_index)
 {
     DEBUG_ENTRY;
 
-    QVkQueue::fpQueuePresentKHR = m_device.fpQueuePresentKHR; // ugh!
+    QVkQueue::fpQueuePresentKHR = m_device->fpQueuePresentKHR; // ugh!
     init_vk_swapchain();
     prepare();
 
@@ -91,36 +91,36 @@ QVulkanView::~QVulkanView()
     m_prepared = false;
 
     for (int i = 0; i < m_framebuffers.count(); i++) {
-        vkDestroyFramebuffer(m_device, m_framebuffers[i], nullptr);
+        vkDestroyFramebuffer(*m_device, m_framebuffers[i], nullptr);
     }
-    vkDestroyDescriptorPool(m_device, m_desc_pool, nullptr);
+    vkDestroyDescriptorPool(*m_device, m_desc_pool, nullptr);
 
-    vkDestroyPipeline(m_device, m_pipeline, nullptr);
-    vkDestroyPipelineCache(m_device, m_pipelineCache, nullptr);
-    vkDestroyRenderPass(m_device, m_render_pass, nullptr);
-    vkDestroyPipelineLayout(m_device, m_pipeline_layout, nullptr);
-    vkDestroyDescriptorSetLayout(m_device, m_desc_layout, nullptr);
+    vkDestroyPipeline(*m_device, m_pipeline, nullptr);
+    vkDestroyPipelineCache(*m_device, m_pipelineCache, nullptr);
+    vkDestroyRenderPass(*m_device, m_render_pass, nullptr);
+    vkDestroyPipelineLayout(*m_device, m_pipeline_layout, nullptr);
+    vkDestroyDescriptorSetLayout(*m_device, m_desc_layout, nullptr);
 
     for (int i = 0; i < DEMO_TEXTURE_COUNT; i++) {
-        vkDestroyImageView(m_device, m_textures[i].view, nullptr);
-        vkDestroyImage(m_device, m_textures[i].image, nullptr);
-        vkFreeMemory(m_device, m_textures[i].mem, nullptr);
-        vkDestroySampler(m_device, m_textures[i].sampler, nullptr);
+        vkDestroyImageView(*m_device, m_textures[i].view, nullptr);
+        vkDestroyImage(*m_device, m_textures[i].image, nullptr);
+        vkFreeMemory(*m_device, m_textures[i].mem, nullptr);
+        vkDestroySampler(*m_device, m_textures[i].sampler, nullptr);
     }
-    m_device.destroySwapchain(m_swapchain, nullptr);
+    m_device->destroySwapchain(m_swapchain, nullptr);
 
-    vkDestroyImageView(m_device, m_depth.view, nullptr);
-    vkDestroyImage(m_device, m_depth.image, nullptr);
-    vkFreeMemory(m_device, m_depth.mem, nullptr);
+    vkDestroyImageView(*m_device, m_depth.view, nullptr);
+    vkDestroyImage(*m_device, m_depth.image, nullptr);
+    vkFreeMemory(*m_device, m_depth.mem, nullptr);
 
     for (int i = 0; i < m_buffers.count(); i++) {
-        vkDestroyImageView(m_device, m_buffers[i].view, nullptr);
+        vkDestroyImageView(*m_device, m_buffers[i].view, nullptr);
         m_buffers[i].view = nullptr;
-        vkFreeCommandBuffers(m_device, m_cmd_pool, 1, &m_buffers[i].cmd);
+        vkFreeCommandBuffers(*m_device, m_cmd_pool, 1, &m_buffers[i].cmd);
         m_buffers[i].cmd = nullptr;
     }
 
-    vkDestroyCommandPool(m_device, m_cmd_pool, nullptr);
+    vkDestroyCommandPool(*m_device, m_cmd_pool, nullptr);
 
     vkDestroySurfaceKHR(m_inst, m_surface, nullptr);
 }
@@ -155,7 +155,7 @@ void QVulkanView::flush_init_cmd() {
     err = vkQueueWaitIdle(m_queue);
     Q_ASSERT(!err);
 
-    vkFreeCommandBuffers(m_device, m_cmd_pool, 1, cmd_bufs);
+    vkFreeCommandBuffers(*m_device, m_cmd_pool, 1, cmd_bufs);
     m_cmd = nullptr;
 }
 
@@ -176,7 +176,7 @@ void QVulkanView::set_image_layout(VkImage image,
         cmd_ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         cmd_ai.commandBufferCount = 1;
 
-        err = vkAllocateCommandBuffers(m_device, &cmd_ai, &m_cmd);
+        err = vkAllocateCommandBuffers(*m_device, &cmd_ai, &m_cmd);
         Q_ASSERT(!err);
 
         VkCommandBufferInheritanceInfo cmd_buf_hinfo = {};
@@ -243,12 +243,12 @@ void QVulkanView::draw() {
 
     VkFence nullFence = nullptr;
 
-    err = vkCreateSemaphore(m_device, &presentCompleteSemaphoreCreateInfo,
+    err = vkCreateSemaphore(*m_device, &presentCompleteSemaphoreCreateInfo,
                             nullptr, &presentCompleteSemaphore);
     Q_ASSERT(!err);
 
     // Get the index of the next available swapchain image:
-    err = m_device.acquireNextImage(m_swapchain, UINT64_MAX,
+    err = m_device->acquireNextImage(m_swapchain, UINT64_MAX,
                                       presentCompleteSemaphore,
                                       nullptr, // TODO: Show use of fence
                                       &m_current_buffer);
@@ -258,7 +258,7 @@ void QVulkanView::draw() {
         // must be recreated:
         resize_vk();
         draw(); // FIXME recursive - bleh
-        vkDestroySemaphore(m_device, presentCompleteSemaphore, nullptr);
+        vkDestroySemaphore(*m_device, presentCompleteSemaphore, nullptr);
         return;
     } else if (err == VK_SUBOPTIMAL_KHR) {
         qWarning("swapchain SUBOPTIMAL");
@@ -309,7 +309,7 @@ void QVulkanView::draw() {
     present.pResults = nullptr;
 
     // TBD/TODO: SHOULD THE "present" PARAMETER BE "const" IN THE HEADER?
-    err = m_device.queuePresent(m_queue, &present);
+    err = m_device->queuePresent(m_queue, &present);
     if (err == VK_ERROR_OUT_OF_DATE_KHR) {
         // swapchain is out of date (e.g. the window was resized) and
         // must be recreated:
@@ -324,7 +324,7 @@ void QVulkanView::draw() {
     err = vkQueueWaitIdle(m_queue);
     Q_ASSERT(err == VK_SUCCESS);
 
-    vkDestroySemaphore(m_device, presentCompleteSemaphore, nullptr);
+    vkDestroySemaphore(*m_device, presentCompleteSemaphore, nullptr);
 }
 
 void QVulkanView::prepare_buffers() {
@@ -412,7 +412,7 @@ void QVulkanView::prepare_buffers() {
         swapchain_ci.oldSwapchain = oldSwapchain;
         swapchain_ci.clipped = true;
 
-    err = m_device.createSwapChain(&swapchain_ci, nullptr, &m_swapchain);
+    err = m_device->createSwapChain(&swapchain_ci, nullptr, &m_swapchain);
     Q_ASSERT(!err);
 
     // If we just re-created an existing swapchain, we should destroy the old
@@ -420,11 +420,11 @@ void QVulkanView::prepare_buffers() {
     // Note: destroying the swapchain also cleans up all its associated
     // presentable images once the platform is done with them.
     if (oldSwapchain != nullptr) {
-        m_device.destroySwapchain(oldSwapchain, nullptr);
+        m_device->destroySwapchain(oldSwapchain, nullptr);
     }
 
     auto getSwapChainImages = [this](uint32_t* c, VkImage* d) {
-        return m_device.getSwapChainImages(m_swapchain, c, d);
+        return m_device->getSwapChainImages(m_swapchain, c, d);
     };
 
     auto swapchainImages = getVk<VkImage>(getSwapChainImages);
@@ -467,7 +467,7 @@ void QVulkanView::prepare_buffers() {
 
         color_image_view.image = m_buffers[i].image;
 
-        err = vkCreateImageView(m_device, &color_image_view, nullptr, &m_buffers[i].view);
+        err = vkCreateImageView(*m_device, &color_image_view, nullptr, &m_buffers[i].view);
         Q_ASSERT(!err);
     }
     }
@@ -513,11 +513,11 @@ void QVulkanView::prepare_depth() {
     m_depth.format = depth_format;
 
     /* create image */
-    err = vkCreateImage(m_device, &image, nullptr, &m_depth.image);
+    err = vkCreateImage(*m_device, &image, nullptr, &m_depth.image);
     qDebug()<<"depth image is"<<m_depth.image;
     Q_ASSERT(!err);
 
-    vkGetImageMemoryRequirements(m_device, m_depth.image, &mem_reqs);
+    vkGetImageMemoryRequirements(*m_device, m_depth.image, &mem_reqs);
     Q_ASSERT(!err);
 
     m_depth.mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -525,18 +525,18 @@ void QVulkanView::prepare_depth() {
     m_depth.mem_alloc.allocationSize = mem_reqs.size;
     m_depth.mem_alloc.memoryTypeIndex = 0;
 
-    int index = device().memoryType(mem_reqs.memoryTypeBits, 0 /* No requirements */);
-    Q_ASSERT(index > 0);
+    int index = device()->memoryType(mem_reqs.memoryTypeBits, 0 /* No requirements */);
+    Q_ASSERT(index >= 0);
     m_depth.mem_alloc.memoryTypeIndex = index;
 
     /* allocate memory */
-    err = vkAllocateMemory(m_device, &m_depth.mem_alloc, nullptr,
+    err = vkAllocateMemory(*m_device, &m_depth.mem_alloc, nullptr,
                            &m_depth.mem);
     Q_ASSERT(!err);
 
     /* bind memory */
     err =
-        vkBindImageMemory(m_device, m_depth.image, m_depth.mem, 0);
+        vkBindImageMemory(*m_device, m_depth.image, m_depth.mem, 0);
     Q_ASSERT(!err);
 
     set_image_layout(m_depth.image, VK_IMAGE_ASPECT_DEPTH_BIT,
@@ -546,7 +546,7 @@ void QVulkanView::prepare_depth() {
 
     /* create image view */
     view.image = m_depth.image;
-    err = vkCreateImageView(m_device, &view, nullptr, &m_depth.view);
+    err = vkCreateImageView(*m_device, &view, nullptr, &m_depth.view);
     Q_ASSERT(!err);
 }
 
@@ -588,27 +588,27 @@ void QVulkanView::prepare_texture_image(const char *filename,
 
     VkMemoryRequirements mem_reqs;
 
-    err = vkCreateImage(m_device, &image_create_info, nullptr, &tex_obj->image);
+    err = vkCreateImage(*m_device, &image_create_info, nullptr, &tex_obj->image);
     Q_ASSERT(!err);
 
-    vkGetImageMemoryRequirements(m_device, tex_obj->image, &mem_reqs);
+    vkGetImageMemoryRequirements(*m_device, tex_obj->image, &mem_reqs);
 
     tex_obj->mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     tex_obj->mem_alloc.pNext = nullptr;
     tex_obj->mem_alloc.allocationSize = mem_reqs.size;
     tex_obj->mem_alloc.memoryTypeIndex = 0;
 
-    int index =  device().memoryType(mem_reqs.memoryTypeBits, required_props);
+    int index =  device()->memoryType(mem_reqs.memoryTypeBits, required_props);
 
-    Q_ASSERT(index > 0);
+    Q_ASSERT(index >= 0);
     tex_obj->mem_alloc.memoryTypeIndex = index;
     /* allocate memory */
-    err = vkAllocateMemory(m_device, &tex_obj->mem_alloc, nullptr,
+    err = vkAllocateMemory(*m_device, &tex_obj->mem_alloc, nullptr,
                            &(tex_obj->mem));
     Q_ASSERT(!err);
 
     /* bind memory */
-    err = vkBindImageMemory(m_device, tex_obj->image, tex_obj->mem, 0);
+    err = vkBindImageMemory(*m_device, tex_obj->image, tex_obj->mem, 0);
     Q_ASSERT(!err);
 
     if (required_props & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
@@ -620,16 +620,16 @@ void QVulkanView::prepare_texture_image(const char *filename,
         VkSubresourceLayout layout;
         void *data;
 
-        vkGetImageSubresourceLayout(m_device, tex_obj->image, &subres,
+        vkGetImageSubresourceLayout(*m_device, tex_obj->image, &subres,
                                     &layout);
 
-        err = vkMapMemory(m_device, tex_obj->mem, 0,
+        err = vkMapMemory(*m_device, tex_obj->mem, 0,
                           tex_obj->mem_alloc.allocationSize, 0, &data);
         Q_ASSERT(!err);
 
         memcpy(data, img.bits(), img.byteCount() ); // FIXME - in place decoding wanted
 
-        vkUnmapMemory(m_device, tex_obj->mem);
+        vkUnmapMemory(*m_device, tex_obj->mem);
     }
 
     tex_obj->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -644,8 +644,8 @@ void QVulkanView::destroy_texture_image(struct texture_object *tex_objs) {
     DEBUG_ENTRY;
 
     /* clean up staging resources */
-    vkFreeMemory(m_device, tex_objs->mem, nullptr);
-    vkDestroyImage(m_device, tex_objs->image, nullptr);
+    vkFreeMemory(*m_device, tex_objs->mem, nullptr);
+    vkDestroyImage(*m_device, tex_objs->image, nullptr);
 }
 
 void QVulkanView::prepare_textures() {
@@ -755,13 +755,13 @@ void QVulkanView::prepare_textures() {
         view.flags = 0;
 
         /* create sampler */
-        err = vkCreateSampler(m_device, &sampler, nullptr,
+        err = vkCreateSampler(*m_device, &sampler, nullptr,
                               &m_textures[i].sampler);
         Q_ASSERT(!err);
 
         /* create image view */
         view.image = m_textures[i].image;
-        err = vkCreateImageView(m_device, &view, nullptr,
+        err = vkCreateImageView(*m_device, &view, nullptr,
                                 &m_textures[i].view);
         Q_ASSERT(!err);
     }
@@ -790,7 +790,7 @@ void QVulkanView::prepare_descriptor_layout() {
 
     VkResult U_ASSERT_ONLY err;
 
-    err = vkCreateDescriptorSetLayout(m_device, &descriptor_layout, nullptr,
+    err = vkCreateDescriptorSetLayout(*m_device, &descriptor_layout, nullptr,
                                       &m_desc_layout);
     Q_ASSERT(!err);
 
@@ -800,7 +800,7 @@ void QVulkanView::prepare_descriptor_layout() {
         pPipelineLayoutCreateInfo.setLayoutCount = 1;
         pPipelineLayoutCreateInfo.pSetLayouts = &m_desc_layout;
 
-    err = vkCreatePipelineLayout(m_device, &pPipelineLayoutCreateInfo, nullptr,
+    err = vkCreatePipelineLayout(*m_device, &pPipelineLayoutCreateInfo, nullptr,
                                  &m_pipeline_layout);
     Q_ASSERT(!err);
 }
@@ -858,7 +858,7 @@ void QVulkanView::prepare_render_pass() {
     rp_info.pDependencies = nullptr;
     VkResult U_ASSERT_ONLY err;
 
-    err = vkCreateRenderPass(m_device, &rp_info, nullptr, &m_render_pass);
+    err = vkCreateRenderPass(*m_device, &rp_info, nullptr, &m_render_pass);
     Q_ASSERT(!err);
 }
 
@@ -882,7 +882,7 @@ VkShaderModule QVulkanView::createShaderModule(QString filename) {
     moduleCreateInfo.flags = 0;
 
     VkShaderModule module = nullptr;
-    err = vkCreateShaderModule(m_device, &moduleCreateInfo, nullptr, &module);
+    err = vkCreateShaderModule(*m_device, &moduleCreateInfo, nullptr, &module);
     Q_ASSERT(!err);
 
     return module;
@@ -963,7 +963,7 @@ void QVulkanView::prepare_pipeline() {
     pipelineCache_ci.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
 
     VkResult U_ASSERT_ONLY err;
-    err = vkCreatePipelineCache(m_device, &pipelineCache_ci, nullptr, &m_pipelineCache);
+    err = vkCreatePipelineCache(*m_device, &pipelineCache_ci, nullptr, &m_pipelineCache);
     Q_ASSERT(!err);
 
     VkGraphicsPipelineCreateInfo pipeline_ci = {};
@@ -982,11 +982,11 @@ void QVulkanView::prepare_pipeline() {
     pipeline_ci.pDynamicState = &dynamicState;
     pipeline_ci.renderPass = m_render_pass;
 
-    err = vkCreateGraphicsPipelines(m_device, m_pipelineCache, 1, &pipeline_ci, nullptr, &m_pipeline);
+    err = vkCreateGraphicsPipelines(*m_device, m_pipelineCache, 1, &pipeline_ci, nullptr, &m_pipeline);
     Q_ASSERT(!err);
 
     for ( uint32_t i = 0; i < pipeline_ci.stageCount; i++ ) {
-        vkDestroyShaderModule(m_device, shaderStages[i].module, nullptr);
+        vkDestroyShaderModule(*m_device, shaderStages[i].module, nullptr);
     }
 }
 
@@ -1008,7 +1008,7 @@ void QVulkanView::prepare_descriptor_pool() {
 
     VkResult U_ASSERT_ONLY err;
 
-    err = vkCreateDescriptorPool(m_device, &descriptor_pool, nullptr,
+    err = vkCreateDescriptorPool(*m_device, &descriptor_pool, nullptr,
                                  &m_desc_pool);
     Q_ASSERT(!err);
 }
@@ -1035,7 +1035,7 @@ void QVulkanView::prepare_framebuffers() {
 
     for (int i = 0; i < m_buffers.count(); i++) {
         attachments[0] = m_buffers[i].view;
-        err = vkCreateFramebuffer(m_device, &fb_info, nullptr, &m_framebuffers[i]);
+        err = vkCreateFramebuffer(*m_device, &fb_info, nullptr, &m_framebuffers[i]);
         Q_ASSERT(!err);
     }
 }
@@ -1051,7 +1051,7 @@ void QVulkanView::prepare() {
     cmd_pool_info.queueFamilyIndex = m_graphics_queue_node_index;
     cmd_pool_info.flags = 0;
 
-    err = vkCreateCommandPool(m_device, &cmd_pool_info, nullptr,
+    err = vkCreateCommandPool(*m_device, &cmd_pool_info, nullptr,
                               &m_cmd_pool);
     Q_ASSERT(!err);
 
@@ -1072,7 +1072,7 @@ void QVulkanView::prepare() {
     cmd_ai.commandBufferCount = 1;
 
     for (int i = 0; i < m_buffers.count(); i++) {
-        err = vkAllocateCommandBuffers(m_device, &cmd_ai, &m_buffers[i].cmd);
+        err = vkAllocateCommandBuffers(*m_device, &cmd_ai, &m_buffers[i].cmd);
         Q_ASSERT(!err);
     }
 
@@ -1103,34 +1103,34 @@ void QVulkanView::resize_vk() {
     m_prepared = false;
 
     for (int i = 0; i < m_framebuffers.count(); i++) {
-        vkDestroyFramebuffer(m_device, m_framebuffers[i], nullptr);
+        vkDestroyFramebuffer(*m_device, m_framebuffers[i], nullptr);
     }
-    vkDestroyDescriptorPool(m_device, m_desc_pool, nullptr);
+    vkDestroyDescriptorPool(*m_device, m_desc_pool, nullptr);
 
-    vkDestroyPipeline(m_device, m_pipeline, nullptr);
-    vkDestroyPipelineCache(m_device, m_pipelineCache, nullptr);
-    vkDestroyRenderPass(m_device, m_render_pass, nullptr);
-    vkDestroyPipelineLayout(m_device, m_pipeline_layout, nullptr);
-    vkDestroyDescriptorSetLayout(m_device, m_desc_layout, nullptr);
+    vkDestroyPipeline(*m_device, m_pipeline, nullptr);
+    vkDestroyPipelineCache(*m_device, m_pipelineCache, nullptr);
+    vkDestroyRenderPass(*m_device, m_render_pass, nullptr);
+    vkDestroyPipelineLayout(*m_device, m_pipeline_layout, nullptr);
+    vkDestroyDescriptorSetLayout(*m_device, m_desc_layout, nullptr);
 
     for (int i = 0; i < DEMO_TEXTURE_COUNT; i++) {
-        vkDestroyImageView(m_device, m_textures[i].view, nullptr);
-        vkDestroyImage(m_device, m_textures[i].image, nullptr);
-        vkFreeMemory(m_device, m_textures[i].mem, nullptr);
-        vkDestroySampler(m_device, m_textures[i].sampler, nullptr);
+        vkDestroyImageView(*m_device, m_textures[i].view, nullptr);
+        vkDestroyImage(*m_device, m_textures[i].image, nullptr);
+        vkFreeMemory(*m_device, m_textures[i].mem, nullptr);
+        vkDestroySampler(*m_device, m_textures[i].sampler, nullptr);
     }
 
-    vkDestroyImageView(m_device, m_depth.view, nullptr);
-    vkDestroyImage(m_device, m_depth.image, nullptr);
-    vkFreeMemory(m_device, m_depth.mem, nullptr);
+    vkDestroyImageView(*m_device, m_depth.view, nullptr);
+    vkDestroyImage(*m_device, m_depth.image, nullptr);
+    vkFreeMemory(*m_device, m_depth.mem, nullptr);
 
     for (int i = 0; i < m_buffers.count(); i++) {
-        vkDestroyImageView(m_device, m_buffers[i].view, nullptr);
+        vkDestroyImageView(*m_device, m_buffers[i].view, nullptr);
         m_buffers[i].view = nullptr;
-        vkFreeCommandBuffers(m_device, m_cmd_pool, 1, &m_buffers[i].cmd);
+        vkFreeCommandBuffers(*m_device, m_cmd_pool, 1, &m_buffers[i].cmd);
         m_buffers[i].cmd = nullptr;
     }
-    vkDestroyCommandPool(m_device, m_cmd_pool, nullptr);
+    vkDestroyCommandPool(*m_device, m_cmd_pool, nullptr);
     m_buffers.clear();
 
     // Second, re-perform the demo_prepare() function, which will re-create the

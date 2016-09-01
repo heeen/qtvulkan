@@ -24,7 +24,7 @@ QMAKE_CXXFLAGS += -g -O -Wall \
     -Wunused-value  -Wunused-variable  -Wvariadic-macros \
     -Wvolatile-register-var  -Wwrite-strings \
     -Wzero-as-null-pointer-constant \
-         -Werror
+         -Werror -fno-omit-frame-pointer -O0
 
 # -Wswitch-enum
 # warnings caused by vulkan.h: -Wpadded -Weffc++

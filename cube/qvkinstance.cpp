@@ -185,10 +185,13 @@ QVkInstance::QVkInstance() {
             break;
         }
     }
+    initFunctions();
 }
 
 
 QVkInstance::~QVkInstance() {
+    DEBUG_ENTRY;
+    if(!m_instance) return;
     if (/*m_validate*/ true) {
         DestroyDebugReportCallback(m_instance, msg_callback, nullptr);
     }
@@ -247,6 +250,8 @@ void QVkInstance::initFunctions()
 }
 
 QVkPhysicalDevice QVkInstance::device(uint32_t index) {
+    DEBUG_ENTRY;
+    qDebug()<<"get device"<<index<<m_instance;
     auto getDev = [this](uint32_t* c, VkPhysicalDevice* d) { return vkEnumeratePhysicalDevices(m_instance, c, d); };
     auto physicalDevices = getVk<VkPhysicalDevice>(getDev);
 
@@ -257,8 +262,9 @@ QVkPhysicalDevice QVkInstance::device(uint32_t index) {
                  "additional information.\n",
                  "vkEnumeratePhysicalDevices Failure");
     }
-
-    return QVkPhysicalDevice(physicalDevices[index]);
+    qDebug()<<physicalDevices;
+    QVkPhysicalDevice dev(physicalDevices[index]);
+    return dev;
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL

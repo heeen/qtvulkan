@@ -7,13 +7,14 @@
 
 class QVkDevice {
 public:
-    QVkDevice(QVkInstance instance,
+    QVkDevice(QVkInstance& instance,
               QVkPhysicalDevice physicalDevice,
               uint32_t graphicsQueueIndex,
               QVulkanNames layers,
               QVulkanNames extensions);
 
     ~QVkDevice();
+    Q_DISABLE_COPY(QVkDevice)
 
     int32_t memoryType(uint32_t typeBits, VkFlags requirements);
 
@@ -48,7 +49,7 @@ public:
     PFN_vkQueuePresentKHR fpQueuePresentKHR             {nullptr};
 
 private:
-    void initFunctions(QVkInstance instance);
+    void initFunctions(QVkInstance &instance);
     VkDevice m_device       {nullptr};
     QVkPhysicalDevice m_gpu;
     VkPhysicalDeviceMemoryProperties m_memory_properties    {};
@@ -58,14 +59,17 @@ private:
 
 class QVkDeviceResource {
 public:
-    QVkDeviceResource(QVkDevice dev)
+    QVkDeviceResource(QSharedPointer<QVkDevice> dev)
         : m_device(dev)
     { }
-    VkDevice device() { return m_device; }
+    VkDevice device() { return *m_device; }
+    QSharedPointer<QVkDevice> dev() { return m_device; }
+
+    Q_DISABLE_COPY(QVkDeviceResource)
 protected:
-    QVkDevice m_device;
+private:
+    QSharedPointer<QVkDevice> m_device;
 //    QVkDeviceResource& operator=(const QVkDeviceResource&) = delete;
-    QVkDeviceResource(const QVkDeviceResource&) = delete;
 };
 
 #endif // QVKDEVICE_H
