@@ -472,8 +472,8 @@ void QVulkanView::prepare_depth() {
         image.pNext = nullptr;
         image.imageType = VK_IMAGE_TYPE_2D;
         image.format = depth_format;
-        image.extent.width = 400; //width();
-        image.extent.height = 400; //height();
+        image.extent.width = width();
+        image.extent.height = height();
         image.extent.depth = 1;
         image.mipLevels = 1;
         image.arrayLayers = 1;
