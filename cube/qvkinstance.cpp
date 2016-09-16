@@ -184,6 +184,18 @@ QVkInstance::QVkInstance() {
             break;
         }
     }
+
+    auto getDev = [this](uint32_t* c, VkPhysicalDevice* d) { return vkEnumeratePhysicalDevices(m_instance, c, d); };
+    m_physicalDevices = getVk<VkPhysicalDevice>(getDev);
+
+    if (m_physicalDevices.isEmpty()) {
+        ERR_EXIT("vkEnumeratePhysicalDevices reported zero accessible devices.\n\n"
+                 "Do you have a compatible Vulkan installable client driver (ICD) "
+                 "installed?\nPlease look at the Getting Started guide for "
+                 "additional information.\n",
+                 "vkEnumeratePhysicalDevices Failure");
+    }
+
     initFunctions();
 }
 
@@ -265,28 +277,14 @@ void QVkInstance::initFunctions()
 
 QVkPhysicalDevice QVkInstance::device(uint32_t index) {
     DEBUG_ENTRY;
-    qDebug()<<"get device"<<index<<m_instance;
-    auto getDev = [this](uint32_t* c, VkPhysicalDevice* d) { return vkEnumeratePhysicalDevices(m_instance, c, d); };
-    auto physicalDevices = getVk<VkPhysicalDevice>(getDev);
-
-    if (physicalDevices.isEmpty()) {
-        ERR_EXIT("vkEnumeratePhysicalDevices reported zero accessible devices.\n\n"
-                 "Do you have a compatible Vulkan installable client driver (ICD) "
-                 "installed?\nPlease look at the Getting Started guide for "
-                 "additional information.\n",
-                 "vkEnumeratePhysicalDevices Failure");
-    }
-    qDebug()<<physicalDevices;
     //FIXME return all of them? refcounting?
-    QVkPhysicalDevice dev(physicalDevices[index]);
+    QVkPhysicalDevice dev(m_physicalDevices[index]);
     return dev;
 }
 
 uint32_t QVkInstance::numDevices()
 {
-    auto getDev = [this](uint32_t* c, VkPhysicalDevice* d) { return vkEnumeratePhysicalDevices(m_instance, c, d); };
-    auto physicalDevices = getVk<VkPhysicalDevice>(getDev);
-    return physicalDevices.size();
+    return m_physicalDevices.size();
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL

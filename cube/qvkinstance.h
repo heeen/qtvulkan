@@ -66,6 +66,7 @@ private:
     bool m_validate { true };
     QVulkanNames m_layerNames;
     QVulkanNames m_extensionNames;
+    QVector<VkPhysicalDevice> m_physicalDevices;
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL
     s_dbgFunc(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
