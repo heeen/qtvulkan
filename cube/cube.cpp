@@ -184,7 +184,10 @@ int main(int argc, char **argv) {
     QVulkanInfoModel model(demo.vkInstance());
     QTreeView tree;
     tree.setModel(&model);
+    tree.resize(500,500);
     tree.show();
+    tree.expandToDepth(1);
+    tree.resizeColumnToContents(0);
     QTimer t;
     t.setInterval(16);
     QObject::connect(&t, &QTimer::timeout, &demo, &CubeDemo::redraw );

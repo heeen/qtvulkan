@@ -183,7 +183,6 @@ void QVulkanInfoModel::setupModelData(QVkInstance *instance, TreeItem *root)
         parent->appendChild(i);
     }
 
-/* //FIXME tries to create swapchain
     TreeItem* devices = new TreeItem({"devices","available physical devices"}, root);
     root->appendChild(devices);
     int numDevices = instance->numDevices();
@@ -192,5 +191,4 @@ void QVulkanInfoModel::setupModelData(QVkInstance *instance, TreeItem *root)
         TreeItem* i = new TreeItem({dev.properties().deviceName,dev.properties().deviceType},devices);
         devices->appendChild(i);
     }
-*/
 }
