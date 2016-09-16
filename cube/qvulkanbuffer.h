@@ -5,7 +5,7 @@
 class QVkDeviceMemory: public QVkDeviceResource
 {
 public:
-    QVkDeviceMemory(QSharedPointer<QVkDevice> device)
+    QVkDeviceMemory(QVkDeviceHandle device)
         : QVkDeviceResource(device)
     {
         DEBUG_ENTRY;
@@ -58,7 +58,7 @@ protected:
 class QVkBuffer
 : public QVkDeviceResource {
     public:
-    QVkBuffer(QSharedPointer<QVkDevice> dev, VkDeviceSize size, VkBufferUsageFlags usage)
+    QVkBuffer(QVkDeviceHandle dev, VkDeviceSize size, VkBufferUsageFlags usage)
         : QVkDeviceResource(dev) {
     DEBUG_ENTRY;
 
@@ -93,7 +93,7 @@ protected:
 
 class QVkStagingBuffer: public QVkBuffer {
 public:
-    QVkStagingBuffer(QSharedPointer<QVkDevice> dev, size_t size)
+    QVkStagingBuffer(QVkDeviceHandle dev, size_t size)
         : QVkBuffer(dev, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT) {
     DEBUG_ENTRY;
 
@@ -127,7 +127,7 @@ private:
 class QVkDeviceBuffer
     : public QVkBuffer {
 public:
-    QVkDeviceBuffer(QSharedPointer<QVkDevice> device, VkDeviceSize size, VkBufferUsageFlags usage)
+    QVkDeviceBuffer(QVkDeviceHandle device, VkDeviceSize size, VkBufferUsageFlags usage)
         : QVkBuffer(device, size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | usage) {
     DEBUG_ENTRY;
     }
@@ -141,7 +141,7 @@ public:
 template <typename VT> class QVkVertexBuffer
     : public QVkDeviceBuffer {
 public:
-    QVkVertexBuffer(QSharedPointer<QVkDevice> device, uint32_t verts)
+    QVkVertexBuffer(QVkDeviceHandle device, uint32_t verts)
         : QVkDeviceBuffer(device, sizeof(VT) * verts, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT) {
         DEBUG_ENTRY;
     }
@@ -155,7 +155,7 @@ public:
 template <typename UniformStruct>
 class QVkUniformBuffer :public QVkDeviceResource {
 public:
-    QVkUniformBuffer(QSharedPointer<QVkDevice> dev)
+    QVkUniformBuffer(QVkDeviceHandle dev)
         : QVkDeviceResource(dev)
     {
         DEBUG_ENTRY;

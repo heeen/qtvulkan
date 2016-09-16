@@ -40,7 +40,9 @@ SOURCES += \
     qvkimage.cpp \
     qvkinstance.cpp \
     qvkdevice.cpp \
-    qvkphysicaldevice.cpp
+    qvkphysicaldevice.cpp \
+    qvkswapchain.cpp \
+    qvulkaninfomodel.cpp
 
 HEADERS += \
     cube.h \
@@ -51,5 +53,7 @@ HEADERS += \
     qvkimage.h \
     qvkinstance.h \
     qvkdevice.h \
-    qvkphysicaldevice.h
+    qvkphysicaldevice.h \
+    qvkswapchain.h \
+    qvulkaninfomodel.h
 

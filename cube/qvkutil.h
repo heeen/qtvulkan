@@ -20,7 +20,7 @@ struct QVkRect : public VkRect2D{
         extent.height = h;
         offset.x = x;
         offset.y = y;
-    };
+    }
 
     QVkRect(QRect qr) {
         extent.width = qr.width();
@@ -94,13 +94,39 @@ public:
 
 };
 
+#include <QSharedPointer>
+template <typename T, typename CF, typename DF>
+class QVkHandle {
+public:
+    QVkHandle() {
+        T handle {nullptr};
+        VkResult err = CF(&handle);
+        Q_ASSERT(!err);
+        m_ptr = decltype(m_ptr)(handle, deleter);
+    }
+
+    static void deleter(T* handle) {
+        DF(handle, nullptr);
+    }
+
+    operator T() { return m_ptr; }
+    QSharedPointer<decltype(std::remove_reference<decltype(*std::declval<T>())>())> m_ptr;
+};
+
+
+inline void foo() {
+
+//    QVkHandle<VkDevice, vkCreateDevice, vkDestroyDevice> handle;
+//    Q_UNUSED(handle);
+
+}
+
 #if 1
 #define DEBUG_ENTRY ScopeDebug DBG(__PRETTY_FUNCTION__);
 #else
 #define DEBUG_ENTRY {}
 #define DBG(...)
 #endif
-
 
 #endif // QVKUTIL_H
 

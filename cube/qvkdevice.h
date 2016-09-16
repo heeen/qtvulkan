@@ -22,7 +22,7 @@ public:
         return m_device;
     }
 
-    inline VkResult createSwapChain(const VkSwapchainCreateInfoKHR* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSwapchainKHR* pSwapchain) {
+    inline VkResult createSwapchain(const VkSwapchainCreateInfoKHR* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSwapchainKHR* pSwapchain) {
         return fpCreateSwapchainKHR(m_device, pCreateInfo, pAllocator, pSwapchain);
     }
 
@@ -30,7 +30,7 @@ public:
         fpDestroySwapchainKHR(m_device, swapchain, pAllocator);
     }
 
-    inline VkResult getSwapChainImages(VkSwapchainKHR swapchain, uint32_t* pSwapchainImageCount, VkImage* pSwapchainImages) {
+    inline VkResult getSwapchainImages(VkSwapchainKHR swapchain, uint32_t* pSwapchainImageCount, VkImage* pSwapchainImages) {
         return fpGetSwapchainImagesKHR(m_device, swapchain, pSwapchainImageCount, pSwapchainImages);
     }
 
@@ -57,19 +57,20 @@ private:
     QVulkanNames m_extensionNames;
 };
 
+typedef QSharedPointer<QVkDevice> QVkDeviceHandle;
+
 class QVkDeviceResource {
 public:
-    QVkDeviceResource(QSharedPointer<QVkDevice> dev)
+    QVkDeviceResource(QVkDeviceHandle dev)
         : m_device(dev)
     { }
     VkDevice device() { return *m_device; }
-    QSharedPointer<QVkDevice> dev() { return m_device; }
+    QVkDeviceHandle dev() { return m_device; }
 
     Q_DISABLE_COPY(QVkDeviceResource)
 protected:
 private:
-    QSharedPointer<QVkDevice> m_device;
-//    QVkDeviceResource& operator=(const QVkDeviceResource&) = delete;
+    QVkDeviceHandle m_device;
 };
 
 #endif // QVKDEVICE_H

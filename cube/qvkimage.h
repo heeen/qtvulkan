@@ -6,7 +6,7 @@
 class QVkImage : public QVkDeviceResource
 {
 public:
-    QVkImage(QSharedPointer<QVkDevice> dev, VkImage image)
+    QVkImage(QVkDeviceHandle dev, VkImage image)
         : QVkDeviceResource(dev)
         , m_image(image) // FIXME create here
         , m_layout(VK_IMAGE_LAYOUT_UNDEFINED)

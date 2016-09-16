@@ -107,7 +107,6 @@ QVulkanView::~QVulkanView()
         vkFreeMemory(*m_device, m_textures[i].mem, nullptr);
         vkDestroySampler(*m_device, m_textures[i].sampler, nullptr);
     }
-    m_device->destroySwapchain(m_swapchain, nullptr);
 
     vkDestroyImageView(*m_device, m_depth.view, nullptr);
     vkDestroyImage(*m_device, m_depth.image, nullptr);
@@ -248,7 +247,7 @@ void QVulkanView::draw() {
     Q_ASSERT(!err);
 
     // Get the index of the next available swapchain image:
-    err = m_device->acquireNextImage(m_swapchain, UINT64_MAX,
+    err = m_swapchain->acquireNextImage(UINT64_MAX,
                                       presentCompleteSemaphore,
                                       nullptr, // TODO: Show use of fence
                                       &m_current_buffer);
@@ -303,7 +302,7 @@ void QVulkanView::draw() {
     present.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     present.pNext = nullptr;
     present.swapchainCount = 1;
-    present.pSwapchains = &m_swapchain;
+    present.pSwapchains = &m_swapchain->handle();
     present.pImageIndices = &m_current_buffer;
     present.waitSemaphoreCount = 0;
     present.pResults = nullptr;
@@ -330,9 +329,9 @@ void QVulkanView::draw() {
 void QVulkanView::prepare_buffers() {
 
     DEBUG_ENTRY;
-    DBG("%dx%d", width(), height());
+    DBG("view dimensions: %dx%d", width(), height());
     VkResult U_ASSERT_ONLY err;
-    VkSwapchainKHR oldSwapchain = m_swapchain;
+    QSharedPointer<QVkSwapchain> oldSwapchain = m_swapchain;
 
     // Check the surface capabilities and formats
     VkSurfaceCapabilitiesKHR surfCapabilities = {};
@@ -385,49 +384,38 @@ void QVulkanView::prepare_buffers() {
     }
 
     VkSurfaceTransformFlagBitsKHR preTransform = {};
-    if (surfCapabilities.supportedTransforms &
-        VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) {
+    if (surfCapabilities.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) {
         preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
     } else {
         preTransform = surfCapabilities.currentTransform;
     }
 
-    VkSwapchainCreateInfoKHR swapchain_ci = {};
-        swapchain_ci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-        swapchain_ci.pNext = nullptr;
-        swapchain_ci.surface = m_surface;
-        swapchain_ci.minImageCount = desiredNumberOfSwapchainImages;
-        swapchain_ci.imageFormat = m_format;
-        swapchain_ci.imageColorSpace = m_color_space;
-        swapchain_ci.imageExtent.width = swapchainExtent.width;
-        swapchain_ci.imageExtent.height = swapchainExtent.height;
-        swapchain_ci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-        swapchain_ci.preTransform = preTransform;
-        swapchain_ci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-        swapchain_ci.imageArrayLayers = 1;
-        swapchain_ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        swapchain_ci.queueFamilyIndexCount = 0;
-        swapchain_ci.pQueueFamilyIndices = nullptr;
-        swapchain_ci.presentMode = swapchainPresentMode;
-        swapchain_ci.oldSwapchain = oldSwapchain;
-        swapchain_ci.clipped = true;
-
-    err = m_device->createSwapChain(&swapchain_ci, nullptr, &m_swapchain);
+    m_swapchain = QSharedPointer<QVkSwapchain>(new QVkSwapchain(
+                                                   m_device,
+                                                   m_surface,
+                                                   desiredNumberOfSwapchainImages,
+                                                   m_format,
+                                                   m_color_space,
+                                                   swapchainExtent,
+                                                   swapchainPresentMode,
+                                                   preTransform,
+                                                   oldSwapchain
+                                                   ));
     Q_ASSERT(!err);
 
     // If we just re-created an existing swapchain, we should destroy the old
     // swapchain at this point.
     // Note: destroying the swapchain also cleans up all its associated
     // presentable images once the platform is done with them.
-    if (oldSwapchain != nullptr) {
-        m_device->destroySwapchain(oldSwapchain, nullptr);
-    }
+//    if (oldSwapchain != nullptr) {
+//        m_device->destroySwapchain(oldSwapchain, nullptr);
+//    }
 
-    auto getSwapChainImages = [this](uint32_t* c, VkImage* d) {
-        return m_device->getSwapChainImages(m_swapchain, c, d);
+    auto getSwapchainImages = [this](uint32_t* c, VkImage* d) {
+        return m_swapchain->getSwapchainImages(c, d);
     };
 
-    auto swapchainImages = getVk<VkImage>(getSwapChainImages);
+    auto swapchainImages = getVk<VkImage>(getSwapchainImages);
     Q_ASSERT(!swapchainImages.isEmpty());
 
 
@@ -1253,10 +1241,6 @@ void QVulkanView::init_vk_swapchain() {
     }
 
     m_graphics_queue_node_index = graphicsQueueNodeIndex;
-
-
-
-//    vkGetDeviceQueue(m_device, m_graphics_queue_node_index, 0, &m_queue);
 
     // Get the list of VkFormat's that are supported:
     auto getSurfForm = [this](uint32_t *c, VkSurfaceFormatKHR* d) {

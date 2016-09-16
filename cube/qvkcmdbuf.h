@@ -135,7 +135,7 @@ private:
 
 class QVkCommandBuffer: public QVkDeviceResource {
 public:
-    QVkCommandBuffer(QSharedPointer<QVkDevice> dev, VkCommandPool pool);
+    QVkCommandBuffer(QVkDeviceHandle dev, VkCommandPool pool);
     ~QVkCommandBuffer();
     operator VkCommandBuffer& () { return m_cmdbuf; }
 
@@ -151,7 +151,7 @@ public:
 /*    QVkQueue(): QVkDeviceResource(nullptr) {
         //FIXME get rid of this default constructor
     }*/
-    QVkQueue(QSharedPointer<QVkDevice> dev, uint32_t familyIndex, uint32_t queueIndex = 0)
+    QVkQueue(QVkDeviceHandle dev, uint32_t familyIndex, uint32_t queueIndex = 0)
         : QVkDeviceResource(dev) {
         vkGetDeviceQueue(device(), familyIndex, queueIndex, &m_queue);
         DEBUG_ENTRY;

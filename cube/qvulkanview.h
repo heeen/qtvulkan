@@ -12,14 +12,10 @@
 #include <vulkan/vulkan.h>
 #include "qvkcmdbuf.h"
 #include "qvkinstance.h"
+#include "qvkswapchain.h"
 
 #define DEMO_TEXTURE_COUNT 1
 
-struct SwapchainBuffers {
-    VkImage image;
-    VkCommandBuffer cmd;
-    VkImageView view;
-};
 
 /*
  * structure to track all objects related to a texture.
@@ -75,7 +71,8 @@ public:
     VkShaderModule createShaderModule(QString filename);
 
     bool validationError() { return m_validationError; }
-    inline QSharedPointer<QVkDevice> device() { return m_device; }
+    inline QVkDeviceHandle device() { return m_device; }
+    inline QVkInstance* vkInstance() { return &m_inst; }
 public slots:
     void redraw();
 
@@ -105,15 +102,15 @@ protected:
     QVkInstance m_inst;
     QVkPhysicalDevice m_gpu;
     uint32_t m_graphics_queue_node_index                    {0};
-    QSharedPointer<QVkDevice> m_device;
+    QVkDeviceHandle m_device;
 
     QVkQueue m_queue;
 
+    QSharedPointer<QVkSwapchain> m_swapchain;
 
     VkFormat m_format               {};
     VkColorSpaceKHR m_color_space   {};
 
-    VkSwapchainKHR m_swapchain {nullptr};
     QVector<SwapchainBuffers> m_buffers     {};
     //FIXME these seem to have the same size should they be in the same vector?
     QVector<VkFramebuffer> m_framebuffers   {};

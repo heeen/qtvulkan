@@ -2,6 +2,8 @@
 #include <QTimer>
 #include <QApplication>
 #include "cubemesh.h"
+#include <QTreeView>
+#include "qvulkaninfomodel.h"
 
 MeshData makeCube() {
     DEBUG_ENTRY;
@@ -174,10 +176,15 @@ int main(int argc, char **argv) {
     DEBUG_ENTRY;
     setvbuf(stdout, nullptr, _IONBF, 0);
 
-    QGuiApplication app(argc, argv);
+    QApplication app(argc, argv);
     CubeDemo demo;
     demo.resize(500,500);
     demo.show();
+
+    QVulkanInfoModel model(demo.vkInstance());
+    QTreeView tree;
+    tree.setModel(&model);
+    tree.show();
     QTimer t;
     t.setInterval(16);
     QObject::connect(&t, &QTimer::timeout, &demo, &CubeDemo::redraw );

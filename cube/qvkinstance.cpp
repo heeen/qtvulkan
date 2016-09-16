@@ -1,25 +1,25 @@
 #include <QDebug>
 #include "qvkinstance.h"
 
+const QVulkanNames QVkInstance::standardValidationLayers( {
+    "VK_LAYER_LUNARG_standard_validation"
+} );
+
+const QVulkanNames QVkInstance::defaultValidationLayers ( {
+    "VK_LAYER_GOOGLE_threading",     "VK_LAYER_LUNARG_parameter_validation",
+    "VK_LAYER_LUNARG_device_limits", "VK_LAYER_LUNARG_object_tracker",
+    "VK_LAYER_LUNARG_image",         "VK_LAYER_LUNARG_core_validation",
+    "VK_LAYER_LUNARG_swapchain",     "VK_LAYER_GOOGLE_unique_objects"
+} );
+
 QVkInstance::QVkInstance() {
 
     DEBUG_ENTRY;
-    QVulkanNames validationLayers;
-    const QVulkanNames standardValidation = {
-        "VK_LAYER_LUNARG_standard_validation"
-    };
-
-    const QVulkanNames defaultValidationLayers = {
-        "VK_LAYER_GOOGLE_threading",     "VK_LAYER_LUNARG_parameter_validation",
-        "VK_LAYER_LUNARG_device_limits", "VK_LAYER_LUNARG_object_tracker",
-        "VK_LAYER_LUNARG_image",         "VK_LAYER_LUNARG_core_validation",
-        "VK_LAYER_LUNARG_swapchain",     "VK_LAYER_GOOGLE_unique_objects"
-    };
 
     // Look for validation layers
     if (m_validate) {
         qDebug()<<"enabling validation";
-        auto layers = getVk<VkLayerProperties>(vkEnumerateInstanceLayerProperties);
+        auto layers = availableLayers();
 
         qDebug()<<"found instance layers:" << getLayerNames(layers);
 
@@ -27,13 +27,13 @@ QVkInstance::QVkInstance() {
             qFatal("could not find any layers. check VK_LAYER_PATH (%s)", getenv("VK_LAYER_PATH"));
         }
 
-        if(containsAllLayers(layers, standardValidation)) {
+        if(containsAllLayers(layers, standardValidationLayers)) {
             qDebug()<<"using standard validation layer";
-            validationLayers << standardValidation; // FIXME do we need different layers for instance and device?
+            m_layerNames<< standardValidationLayers; // FIXME do we need different layers for instance and device?
             //m_deviceValidationLayers << standardValidation;
         } else if (containsAllLayers(layers, defaultValidationLayers)) {
             qDebug()<<"using default validation layers";
-            validationLayers << defaultValidationLayers;
+            m_layerNames << defaultValidationLayers;
             //m_deviceValidationLayers << defaultValidationLayers;
         } else {
             qFatal("validation layers requested, but could not find validation layers");
@@ -44,8 +44,7 @@ QVkInstance::QVkInstance() {
     VkBool32 surfaceExtFound = 0;
     VkBool32 platformSurfaceExtFound = 0;
 
-    auto getExt = [](uint32_t* c, VkExtensionProperties* d) { return vkEnumerateInstanceExtensionProperties(nullptr, c, d); };
-    auto extensions = getVk<VkExtensionProperties>(getExt);
+    auto extensions = availableExtensions();
 
     if (extensions.isEmpty()) {
         qFatal("could not find any instance extensions");
@@ -99,8 +98,8 @@ QVkInstance::QVkInstance() {
     inst_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     inst_info.pNext = nullptr;
     inst_info.pApplicationInfo = &app;
-    inst_info.enabledLayerCount = validationLayers.count();
-    inst_info.ppEnabledLayerNames = validationLayers.data();
+    inst_info.enabledLayerCount = m_layerNames.count();
+    inst_info.ppEnabledLayerNames = m_layerNames.data();
     inst_info.enabledExtensionCount = m_extensionNames.count();
     inst_info.ppEnabledExtensionNames = m_extensionNames.data();
 
@@ -229,6 +228,17 @@ VkBool32 QVkInstance::debugMessage(VkFlags msgFlags, VkDebugReportObjectTypeEXT 
     return false;
 }
 
+QVector<VkLayerProperties> QVkInstance::availableLayers()
+{
+    return getVk<VkLayerProperties>(vkEnumerateInstanceLayerProperties);
+}
+
+QVector<VkExtensionProperties> QVkInstance::availableExtensions()
+{
+    auto getExt = [](uint32_t* c, VkExtensionProperties* d) { return vkEnumerateInstanceExtensionProperties(nullptr, c, d); };
+    return getVk<VkExtensionProperties>(getExt);
+}
+
 #define GET_INSTANCE_PROC_ADDR(inst, entrypoint)                               \
     {                                                                          \
         fp##entrypoint =                                                 \
@@ -249,6 +259,10 @@ void QVkInstance::initFunctions()
 // GET_INSTANCE_PROC_ADDR(m_instance, GetSwapchainImagesKHR);
 }
 
+
+
+
+
 QVkPhysicalDevice QVkInstance::device(uint32_t index) {
     DEBUG_ENTRY;
     qDebug()<<"get device"<<index<<m_instance;
@@ -263,8 +277,16 @@ QVkPhysicalDevice QVkInstance::device(uint32_t index) {
                  "vkEnumeratePhysicalDevices Failure");
     }
     qDebug()<<physicalDevices;
+    //FIXME return all of them? refcounting?
     QVkPhysicalDevice dev(physicalDevices[index]);
     return dev;
+}
+
+uint32_t QVkInstance::numDevices()
+{
+    auto getDev = [this](uint32_t* c, VkPhysicalDevice* d) { return vkEnumeratePhysicalDevices(m_instance, c, d); };
+    auto physicalDevices = getVk<VkPhysicalDevice>(getDev);
+    return physicalDevices.size();
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL

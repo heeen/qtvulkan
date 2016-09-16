@@ -2,7 +2,7 @@
 
 PFN_vkQueuePresentKHR QVkQueue::fpQueuePresentKHR = nullptr;
 
-QVkCommandBuffer::QVkCommandBuffer(QSharedPointer<QVkDevice> dev, VkCommandPool pool)
+QVkCommandBuffer::QVkCommandBuffer(QVkDeviceHandle dev, VkCommandPool pool)
     : QVkDeviceResource(dev)
     , m_pool(pool)
     , m_cmdbuf {}

@@ -14,6 +14,7 @@ public:
     Q_DISABLE_COPY(QVkInstance)
 
     QVkPhysicalDevice device(uint32_t index);
+    uint32_t numDevices();
 
     inline VkResult getPhysicalDeviceSurfaceSupport(VkPhysicalDevice physicalDevice, uint32_t queueFamilyIndex, VkSurfaceKHR surface, VkBool32* pSupported) {
         return fpGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, queueFamilyIndex, surface, pSupported);
@@ -43,6 +44,20 @@ public:
     virtual VkBool32 debugMessage(VkFlags msgFlags, VkDebugReportObjectTypeEXT objType,
         uint64_t srcObject, size_t location, int32_t msgCode,
         const char *pLayerPrefix, const char *pMsg);
+
+    QVulkanNames enabledLayerNames() const {
+        return m_layerNames;
+    }
+
+    QVulkanNames enabledExtensionNames() const {
+        return m_extensionNames;
+    }
+
+    QVector<VkLayerProperties> availableLayers();
+    QVector<VkExtensionProperties> availableExtensions();
+
+    static const QVulkanNames defaultValidationLayers;
+    static const QVulkanNames standardValidationLayers;
 
 private:
     void initFunctions();
