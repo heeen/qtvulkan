@@ -88,8 +88,6 @@ QVulkanView::~QVulkanView()
 {
     DEBUG_ENTRY;
 
-    m_prepared = false;
-
     for (int i = 0; i < m_framebuffers.count(); i++) {
         vkDestroyFramebuffer(*m_device, m_framebuffers[i], nullptr);
     }
@@ -121,6 +119,7 @@ QVulkanView::~QVulkanView()
 
     vkDestroyCommandPool(*m_device, m_cmd_pool, nullptr);
 
+    m_swapchain.clear();
     vkDestroySurfaceKHR(m_inst, m_surface, nullptr);
 }
 
@@ -482,18 +481,6 @@ void QVulkanView::prepare_depth() {
         image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
         image.flags = 0;
 
-    VkImageViewCreateInfo view = {};
-        view.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        view.pNext = nullptr;
-        view.image = nullptr;
-        view.format = depth_format;
-        view.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-        view.subresourceRange.baseMipLevel = 0;
-        view.subresourceRange.levelCount = 1;
-        view.subresourceRange.baseArrayLayer = 0;
-        view.subresourceRange.layerCount = 1;
-        view.flags = 0;
-        view.viewType = VK_IMAGE_VIEW_TYPE_2D;
 
     VkMemoryRequirements mem_reqs;
     VkResult U_ASSERT_ONLY err;
@@ -513,7 +500,7 @@ void QVulkanView::prepare_depth() {
     m_depth.mem_alloc.allocationSize = mem_reqs.size;
     m_depth.mem_alloc.memoryTypeIndex = 0;
 
-    int index = device()->memoryType(mem_reqs.memoryTypeBits, 0 /* No requirements */);
+    int index = vkDevice()->memoryType(mem_reqs.memoryTypeBits, 0 /* No requirements */);
     Q_ASSERT(index >= 0);
     m_depth.mem_alloc.memoryTypeIndex = index;
 
@@ -533,7 +520,18 @@ void QVulkanView::prepare_depth() {
                           (VkAccessFlagBits)0);
 
     /* create image view */
+    VkImageViewCreateInfo view = {};
+    view.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    view.pNext = nullptr;
     view.image = m_depth.image;
+    view.format = depth_format;
+    view.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    view.subresourceRange.baseMipLevel = 0;
+    view.subresourceRange.levelCount = 1;
+    view.subresourceRange.baseArrayLayer = 0;
+    view.subresourceRange.layerCount = 1;
+    view.flags = 0;
+    view.viewType = VK_IMAGE_VIEW_TYPE_2D;
     err = vkCreateImageView(*m_device, &view, nullptr, &m_depth.view);
     Q_ASSERT(!err);
 }
@@ -586,7 +584,7 @@ void QVulkanView::prepare_texture_image(const char *filename,
     tex_obj->mem_alloc.allocationSize = mem_reqs.size;
     tex_obj->mem_alloc.memoryTypeIndex = 0;
 
-    int index =  device()->memoryType(mem_reqs.memoryTypeBits, required_props);
+    int index =  vkDevice()->memoryType(mem_reqs.memoryTypeBits, required_props);
 
     Q_ASSERT(index >= 0);
     tex_obj->mem_alloc.memoryTypeIndex = index;
@@ -1074,21 +1072,15 @@ void QVulkanView::prepare() {
     flush_init_cmd();
 
     m_current_buffer = 0;
-    m_prepared = true;
 }
 
 void QVulkanView::resize_vk() {
     DEBUG_ENTRY;
 
-    // Don't react to resize until after first initialization.
-    if (!m_prepared) {
-        return;
-    }
     // In order to properly resize the window, we must re-create the swapchain
     // AND redo the command buffers, etc.
     //
     // First, perform part of the demo_cleanup() function:
-    m_prepared = false;
 
     for (int i = 0; i < m_framebuffers.count(); i++) {
         vkDestroyFramebuffer(*m_device, m_framebuffers[i], nullptr);
@@ -1258,6 +1250,4 @@ void QVulkanView::init_vk_swapchain() {
         m_format = surfFormats[0].format;
     }
     m_color_space = surfFormats[0].colorSpace;
-
-    m_curFrame = 0;
 }

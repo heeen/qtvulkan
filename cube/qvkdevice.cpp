@@ -101,6 +101,7 @@ QVkDevice::QVkDevice(QVkInstance &instance,
 QVkDevice::~QVkDevice() {
     DEBUG_ENTRY;
     vkDestroyDevice(m_device, nullptr);
+    m_device = nullptr;
 }
 
 int32_t QVkDevice::memoryType(uint32_t typeBits, VkFlags requirements) {

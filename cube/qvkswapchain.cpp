@@ -36,21 +36,21 @@ QVkSwapchain::QVkSwapchain(QVkDeviceHandle device,
     swapchain_ci.oldSwapchain = oldSwapchain ? oldSwapchain->handle() : nullptr;
     swapchain_ci.clipped = true;
 
-    err = dev()->createSwapchain(&swapchain_ci, nullptr, &m_swapchain);
+    err = device->createSwapchain(&swapchain_ci, nullptr, &m_swapchain);
     Q_ASSERT(!err);
 }
 
 QVkSwapchain::~QVkSwapchain()
 {
-    dev()->destroySwapchain(m_swapchain, nullptr);
+    device()->destroySwapchain(m_swapchain, nullptr);
 }
 
 VkResult QVkSwapchain::getSwapchainImages(uint32_t *pSwapchainImageCount, VkImage *pSwapchainImages)
 {
-    return dev()->getSwapchainImages(m_swapchain, pSwapchainImageCount, pSwapchainImages);
+    return device()->getSwapchainImages(m_swapchain, pSwapchainImageCount, pSwapchainImages);
 }
 
 VkResult QVkSwapchain::acquireNextImage(uint64_t timeout, VkSemaphore semaphore, VkFence fence, uint32_t *pImageIndex)
 {
-    return dev()->acquireNextImage(m_swapchain, timeout,semaphore, fence, pImageIndex);
+    return device()->acquireNextImage(m_swapchain, timeout,semaphore, fence, pImageIndex);
 }

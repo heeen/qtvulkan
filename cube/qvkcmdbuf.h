@@ -153,7 +153,7 @@ public:
     }*/
     QVkQueue(QVkDeviceHandle dev, uint32_t familyIndex, uint32_t queueIndex = 0)
         : QVkDeviceResource(dev) {
-        vkGetDeviceQueue(device(), familyIndex, queueIndex, &m_queue);
+        vkGetDeviceQueue(vkDevice(), familyIndex, queueIndex, &m_queue);
         DEBUG_ENTRY;
     }
     ~QVkQueue() {

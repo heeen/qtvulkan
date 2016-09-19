@@ -64,8 +64,8 @@ public:
     QVkDeviceResource(QVkDeviceHandle dev)
         : m_device(dev)
     { }
-    VkDevice device() { return *m_device; }
-    QVkDeviceHandle dev() { return m_device; }
+    VkDevice vkDevice() { return *m_device; }
+    QVkDeviceHandle device() { return m_device; }
 
     Q_DISABLE_COPY(QVkDeviceResource)
 protected:

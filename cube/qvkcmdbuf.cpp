@@ -15,13 +15,13 @@ QVkCommandBuffer::QVkCommandBuffer(QVkDeviceHandle dev, VkCommandPool pool)
     cmd_buf_ai.commandPool = pool;
     cmd_buf_ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     cmd_buf_ai.commandBufferCount = 1;
-    err = vkAllocateCommandBuffers(device(), &cmd_buf_ai, &m_cmdbuf);
+    err = vkAllocateCommandBuffers(vkDevice(), &cmd_buf_ai, &m_cmdbuf);
     Q_ASSERT(!err);
 }
 
 QVkCommandBuffer::~QVkCommandBuffer(){
     DEBUG_ENTRY;
-    vkFreeCommandBuffers(device(), m_pool, 1, &m_cmdbuf);
+    vkFreeCommandBuffers(vkDevice(), m_pool, 1, &m_cmdbuf);
 }
 
 QVkCommandBufferRecorder QVkCommandBuffer::record(VkCommandBufferUsageFlags flags) {

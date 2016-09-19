@@ -17,6 +17,7 @@ public:
     }
 
     void appendChild(TreeItem *child) {
+        child->m_parentItem = this;
         m_childItems.append(child);
     }
 
@@ -51,6 +52,28 @@ private:
     QList<QVariant> m_itemData;
     TreeItem *m_parentItem;
 };
+
+class DeviceNode: public TreeItem {
+public:
+    class LimitsNode: public TreeItem {
+    public:
+        LimitsNode(VkPhysicalDeviceLimits limits, TreeItem* parent = nullptr)
+            : TreeItem({"limits", "value"}, parent) {
+            appendChild(new TreeItem({"bufferImageGranularity", (uint)limits.bufferImageGranularity}));
+        }
+    };
+
+    DeviceNode(QVkPhysicalDevice* dev, TreeItem* parent = nullptr)
+        : TreeItem({dev->properties().deviceName, "value"}, parent) {
+        VkPhysicalDeviceProperties p = dev->properties();
+        appendChild(new TreeItem({"deviceType",     p.deviceType}));
+        appendChild(new TreeItem({"deviceID",       p.deviceID}));
+        appendChild(new TreeItem({"apiVersion",     p.apiVersion}));
+        appendChild(new TreeItem({"vendorID",       p.vendorID}));
+        appendChild(new LimitsNode(p.limits));
+    }
+};
+
 
 QVulkanInfoModel::QVulkanInfoModel(QVkInstance* instance, QObject *parent)
     : QAbstractItemModel(parent)
@@ -154,41 +177,41 @@ void QVulkanInfoModel::setupModelData(QVkInstance *instance, TreeItem *root)
 {
     TreeItem* parent;
 
-    parent = new TreeItem({"enabled layers", ""}, root);
+    parent = new TreeItem({"enabled layers", ""});
     root->appendChild(parent);
 
     for(auto name: instance->enabledLayerNames()) {
-        TreeItem* i = new TreeItem({name, ""},parent);
+        TreeItem* i = new TreeItem({name, ""});
         parent->appendChild(i);
     }
 
-    parent = new TreeItem({"enabled extensions",""}, root);
+    parent = new TreeItem({"enabled extensions",""});
     root->appendChild(parent);
     for(auto name: instance->enabledExtensionNames()) {
-        TreeItem* i = new TreeItem({name,""},parent);
+        TreeItem* i = new TreeItem({name,""});
         parent->appendChild(i);
     }
 
-    parent = new TreeItem({"available layers", ""}, root);
+    parent = new TreeItem({"available layers", ""});
     root->appendChild(parent);
     for(auto elem: instance->availableLayers()) {
-        TreeItem* i = new TreeItem({elem.layerName, ""},parent);
+        TreeItem* i = new TreeItem({elem.layerName, ""});
         parent->appendChild(i);
     }
 
-    parent = new TreeItem({"available extensions",""}, root);
+    parent = new TreeItem({"available extensions",""});
     root->appendChild(parent);
     for(auto elem: instance->availableExtensions()) {
-        TreeItem* i = new TreeItem({elem.extensionName,""},parent);
+        TreeItem* i = new TreeItem({elem.extensionName,""});
         parent->appendChild(i);
     }
 
-    TreeItem* devices = new TreeItem({"devices","available physical devices"}, root);
+    TreeItem* devices = new TreeItem({"devices","available physical devices"});
     root->appendChild(devices);
     int numDevices = instance->numDevices();
     for(int j = 0; j < numDevices; j++) {
         QVkPhysicalDevice dev = instance->device(j);
-        TreeItem* i = new TreeItem({dev.properties().deviceName,dev.properties().deviceType},devices);
+        TreeItem* i = new DeviceNode(&dev);
         devices->appendChild(i);
     }
 }

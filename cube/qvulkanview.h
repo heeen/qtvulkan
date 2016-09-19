@@ -70,8 +70,7 @@ public:
 
     VkShaderModule createShaderModule(QString filename);
 
-    bool validationError() { return m_validationError; }
-    inline QVkDeviceHandle device() { return m_device; }
+    inline QVkDeviceHandle vkDevice() { return m_device; }
     inline QVkInstance* vkInstance() { return &m_inst; }
 public slots:
     void redraw();
@@ -96,7 +95,6 @@ protected:
     QVector<const char*> m_deviceValidationLayers   {};
 
     VkSurfaceKHR m_surface      { nullptr };
-    bool m_prepared             { false };
     bool m_use_staging_buffer   { false };
 
     QVkInstance m_inst;
@@ -138,12 +136,6 @@ protected:
 
     VkDescriptorPool m_desc_pool  {nullptr};
     VkDescriptorSet m_desc_set  {nullptr};
-
-    int32_t m_curFrame  {0};
-    int32_t m_frameCount  {INT32_MAX};
-    bool m_use_break { false };
-
-    bool m_validationError { false };
 };
 
 

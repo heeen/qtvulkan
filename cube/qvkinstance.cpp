@@ -13,7 +13,6 @@ const QVulkanNames QVkInstance::defaultValidationLayers ( {
 } );
 
 QVkInstance::QVkInstance() {
-
     DEBUG_ENTRY;
 
     // Look for validation layers
@@ -29,12 +28,10 @@ QVkInstance::QVkInstance() {
 
         if(containsAllLayers(layers, standardValidationLayers)) {
             qDebug()<<"using standard validation layer";
-            m_layerNames<< standardValidationLayers; // FIXME do we need different layers for instance and device?
-            //m_deviceValidationLayers << standardValidation;
+            m_layerNames << standardValidationLayers; // FIXME do we need different layers for instance and device?
         } else if (containsAllLayers(layers, defaultValidationLayers)) {
             qDebug()<<"using default validation layers";
             m_layerNames << defaultValidationLayers;
-            //m_deviceValidationLayers << defaultValidationLayers;
         } else {
             qFatal("validation layers requested, but could not find validation layers");
         }
@@ -207,6 +204,7 @@ QVkInstance::~QVkInstance() {
         DestroyDebugReportCallback(m_instance, msg_callback, nullptr);
     }
     vkDestroyInstance(m_instance, nullptr);
+    m_instance = nullptr;
 }
 
 
@@ -261,18 +259,13 @@ QVector<VkExtensionProperties> QVkInstance::availableExtensions()
         }                                                                      \
     }
 
-
 void QVkInstance::initFunctions()
 {
     GET_INSTANCE_PROC_ADDR(m_instance, GetPhysicalDeviceSurfaceSupportKHR);
     GET_INSTANCE_PROC_ADDR(m_instance, GetPhysicalDeviceSurfaceCapabilitiesKHR);
     GET_INSTANCE_PROC_ADDR(m_instance, GetPhysicalDeviceSurfaceFormatsKHR);
     GET_INSTANCE_PROC_ADDR(m_instance, GetPhysicalDeviceSurfacePresentModesKHR);
-// GET_INSTANCE_PROC_ADDR(m_instance, GetSwapchainImagesKHR);
 }
-
-
-
 
 
 QVkPhysicalDevice QVkInstance::device(uint32_t index) {

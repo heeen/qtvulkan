@@ -27,8 +27,8 @@ MeshData makeCube() {
 }
 
 CubeDemo::CubeDemo()
-    : m_uniformBuffer(device())
-//    , m_vertexBuffer(device())
+    : m_uniformBuffer(vkDevice())
+    , m_vertexBuffer(vkDevice())
 {
     DEBUG_ENTRY;
     QVector3D eye(0.0f, 3.0f, 5.0f);
@@ -74,7 +74,7 @@ void CubeDemo::prepareDescriptorSet()
     alloc_info.pSetLayouts = &m_desc_layout;
 
     VkResult U_ASSERT_ONLY err;
-    err = vkAllocateDescriptorSets(*device(), &alloc_info, &m_desc_set);
+    err = vkAllocateDescriptorSets(*vkDevice(), &alloc_info, &m_desc_set);
     Q_ASSERT(!err);
 
     VkDescriptorImageInfo tex_descs[DEMO_TEXTURE_COUNT] = {};
@@ -98,7 +98,7 @@ void CubeDemo::prepareDescriptorSet()
     writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     writes[1].pImageInfo = tex_descs;
 
-    vkUpdateDescriptorSets(*device(), 2, writes, 0, nullptr);
+    vkUpdateDescriptorSets(*vkDevice(), 2, writes, 0, nullptr);
 }
 
 void CubeDemo::buildDrawCommand(VkCommandBuffer cmd_buf)
@@ -149,7 +149,7 @@ void CubeDemo::redraw() {
     }
 
     // Wait for work to finish before updating MVP.
-    vkDeviceWaitIdle(*device());
+    vkDeviceWaitIdle(*vkDevice());
     updateUniforms();
     draw();
 }
@@ -193,5 +193,5 @@ int main(int argc, char **argv) {
     QObject::connect(&t, &QTimer::timeout, &demo, &CubeDemo::redraw );
     t.start();
     app.exec();
-    return demo.validationError();
+    return EXIT_SUCCESS;
 }

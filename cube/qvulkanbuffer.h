@@ -19,14 +19,14 @@ public:
         allocinfo.allocationSize = m_size;
         allocinfo.memoryTypeIndex = typeIndex;
 
-        VkResult err = vkAllocateMemory(device(), &allocinfo, nullptr, &m_memory);
+        VkResult err = vkAllocateMemory(vkDevice(), &allocinfo, nullptr, &m_memory);
         Q_ASSERT(!err);
     }
 
     ~QVkDeviceMemory() {
         DEBUG_ENTRY;
         if(m_size)
-            vkFreeMemory(device(), m_memory, nullptr);
+            vkFreeMemory(vkDevice(), m_memory, nullptr);
         m_size = 0;
     }
 
@@ -36,13 +36,13 @@ public:
         Q_ASSERT(offset + size <= m_size);
         void* ptr;
         VkMemoryMapFlags flags {0};
-        vkMapMemory(device(), m_memory, offset, size, flags, &ptr);
+        vkMapMemory(vkDevice(), m_memory, offset, size, flags, &ptr);
         return ptr;
     }
 
     void unmap() {
     DEBUG_ENTRY;
-        vkUnmapMemory(device(), m_memory);
+        vkUnmapMemory(vkDevice(), m_memory);
     }
 
     VkDeviceSize size() {
@@ -68,14 +68,14 @@ class QVkBuffer
         buf_ci.size = size;
         buf_ci.usage = usage;
         // Create a host-visible buffer to copy the vertex data to (staging buffer)
-        err = vkCreateBuffer(device(), &buf_ci, nullptr, &m_buffer);
+        err = vkCreateBuffer(vkDevice(), &buf_ci, nullptr, &m_buffer);
         Q_ASSERT(!err);
-        vkGetBufferMemoryRequirements(device(), m_buffer, &m_memReqs);
+        vkGetBufferMemoryRequirements(vkDevice(), m_buffer, &m_memReqs);
     }
 
     ~QVkBuffer() {
     DEBUG_ENTRY;
-        vkDestroyBuffer(device(), m_buffer, nullptr);
+        vkDestroyBuffer(vkDevice(), m_buffer, nullptr);
     }
 
     VkDeviceSize size() {
@@ -104,15 +104,15 @@ public:
         // Request a host visible memory type that can be used to copy our data do
         // Also request it to be coherent, so that writes are visible to the GPU right after unmapping the buffer
 //        memAlloc.memoryTypeIndex = getMemoryTypeIndex(m_memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        err = vkAllocateMemory(device(), &memAlloc, nullptr, &m_memory);
+        err = vkAllocateMemory(vkDevice(), &memAlloc, nullptr, &m_memory);
         Q_ASSERT(!err);
         // Map and copy
         void* data;
-        err = vkMapMemory(device(), m_memory, 0, memAlloc.allocationSize, 0, &data);
+        err = vkMapMemory(vkDevice(), m_memory, 0, memAlloc.allocationSize, 0, &data);
         Q_ASSERT(!err);
 //        memcpy(data, vertexBuffer.data(), vertexBufferSize);
-        vkUnmapMemory(device(), m_memory);
-        err = vkBindBufferMemory(device(), m_buffer, m_memory, 0);
+        vkUnmapMemory(vkDevice(), m_memory);
+        err = vkBindBufferMemory(vkDevice(), m_buffer, m_memory, 0);
         Q_ASSERT(!err);
     }
     ~QVkStagingBuffer() {
@@ -164,11 +164,11 @@ public:
         buf_ci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         buf_ci.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
         buf_ci.size = sizeof(UniformStruct);
-        err = vkCreateBuffer(device(), &buf_ci, nullptr, &m_buffer);
+        err = vkCreateBuffer(vkDevice(), &buf_ci, nullptr, &m_buffer);
         Q_ASSERT(!err);
 
         VkMemoryRequirements mem_reqs = {};
-        vkGetBufferMemoryRequirements(device(), m_buffer, &mem_reqs);
+        vkGetBufferMemoryRequirements(vkDevice(), m_buffer, &mem_reqs);
 
         VkMemoryAllocateInfo mem_ai;
         mem_ai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -182,12 +182,12 @@ public:
         Q_ASSERT(index >= 0);
         mem_ai.memoryTypeIndex = index;
 
-        err = vkAllocateMemory(device(), &mem_ai, nullptr, &m_memory);
+        err = vkAllocateMemory(vkDevice(), &mem_ai, nullptr, &m_memory);
         m_allocationSize = mem_ai.allocationSize;
         Q_ASSERT(!err);
 
 
-        err = vkBindBufferMemory(device(), m_buffer, m_memory, /*offset*/ 0);
+        err = vkBindBufferMemory(vkDevice(), m_buffer, m_memory, /*offset*/ 0);
         Q_ASSERT(!err);
 
         m_descriptorInfo.buffer = m_buffer;
@@ -197,15 +197,15 @@ public:
     }
     ~QVkUniformBuffer() {
         DEBUG_ENTRY;
-        vkDestroyBuffer(device(), m_buffer, nullptr);
-        vkFreeMemory(device(), m_memory, nullptr);
+        vkDestroyBuffer(vkDevice(), m_buffer, nullptr);
+        vkFreeMemory(vkDevice(), m_memory, nullptr);
     }
 
     UniformStruct* map() {
         DEBUG_ENTRY;
         VkResult err;
         UniformStruct* mappedAddr;
-        err = vkMapMemory(device(), m_memory,
+        err = vkMapMemory(vkDevice(), m_memory,
                           /*offset*/ 0,
                           m_allocationSize,
                           /*flags*/0,
@@ -216,7 +216,7 @@ public:
 
     void unmap() {
         DEBUG_ENTRY;
-        vkUnmapMemory(device(), m_memory);
+        vkUnmapMemory(vkDevice(), m_memory);
     }
 
     void update() {
