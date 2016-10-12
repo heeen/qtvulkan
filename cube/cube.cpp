@@ -28,7 +28,7 @@ MeshData makeCube() {
 
 CubeDemo::CubeDemo()
     : m_uniformBuffer(vkDevice())
-    , m_vertexBuffer(vkDevice())
+//    , m_vertexBuffer(vkDevice())
 {
     DEBUG_ENTRY;
     QVector3D eye(0.0f, 3.0f, 5.0f);

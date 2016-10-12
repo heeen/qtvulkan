@@ -146,3 +146,59 @@ QVkCommandBufferRecorder &QVkCommandBufferRecorder::pipelineBarrier(VkPipelineSt
                          1, pImageMemoryBarrier);
     return *this;
 }
+
+QVkCommandBufferRecorder &QVkCommandBufferRecorder::transformImage(VkImage image,
+                                             VkImageLayout fromLayout,
+                                             VkImageLayout toLayout,
+                                             VkImageAspectFlags aspectMask,
+                                             VkAccessFlags srcAccess,
+                                             VkAccessFlags dstAccess) {
+
+        DEBUG_ENTRY;
+        DBG("image %p from %i to %i\n", (void*)image, fromLayout, toLayout);
+        VkImageMemoryBarrier barrier = {};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.pNext = nullptr;
+        barrier.srcAccessMask = srcAccess; 
+        barrier.dstAccessMask = dstAccess; //FIXME we overwrite them, why even allow setting it
+        barrier.oldLayout = fromLayout;
+        barrier.newLayout = toLayout;
+        barrier.image = image;
+        barrier.subresourceRange = {aspectMask, 0, 1, 0, 1};
+        switch(toLayout) {
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            /* Make sure anything that was copying from this image has completed */
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+            barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            break;
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            /* Make sure any Copy or CPU writes to image are flushed */
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+            break;
+        default:
+            barrier.dstAccessMask |= 0; // FIXME
+        }
+
+        VkPipelineStageFlags src_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        VkPipelineStageFlags dest_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+
+        vkCmdPipelineBarrier(m_cb, src_stages, dest_stages, 0,
+                             0, nullptr,
+                             0, nullptr,
+                             1, &barrier);
+        return *this;
+    }
+
+QVkCommandBufferRecorder& QVkCommandBufferRecorder::copyBuffer(QVkStagingBuffer& src, QVkDeviceBuffer& dst) {
+    DEBUG_ENTRY;
+    VkBufferCopy copyRegion = {};
+    Q_ASSERT(src.size() == dst.size());
+    copyRegion.size = src.size();
+    vkCmdCopyBuffer(m_cb, src.buffer(), dst.buffer(), 1, &copyRegion);
+    return *this;
+}

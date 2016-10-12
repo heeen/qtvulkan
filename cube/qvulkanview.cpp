@@ -271,7 +271,11 @@ void QVulkanView::draw() {
     QVkCommandBuffer cmd(m_device, m_cmd_pool);
     cmd.record()
         .transformImage(m_buffers[m_current_buffer].image,
-                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                VK_IMAGE_ASPECT_COLOR_BIT,
+                VK_ACCESS_MEMORY_READ_BIT,
+                0 );
     m_queue.submit(cmd);
     m_queue.waitIdle();
 
@@ -450,7 +454,10 @@ void QVulkanView::prepare_buffers() {
         // layout and will change to COLOR_ATTACHMENT_OPTIMAL, so init the image
         // to that state
         cbr.transformImage(m_buffers[i].image,
-                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+                VK_IMAGE_LAYOUT_UNDEFINED,
+                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                VK_IMAGE_ASPECT_COLOR_BIT,
+                0, VK_ACCESS_MEMORY_READ_BIT);
 
         color_image_view.image = m_buffers[i].image;
 

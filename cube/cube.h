@@ -44,7 +44,7 @@ private:
         QVector4D position;
         QVector4D attr;
     };
-    QVkVertexBuffer<CubeVertexType> m_vertexBuffer;
+//    QVkVertexBuffer<CubeVertexType> m_vertexBuffer;
 
 };
 
